@@ -14,20 +14,8 @@ const styles = StyleSheet.create({
   },
   
   // --- HEADER & FOOTER ---
-  headerImage: { 
-    width: '100%', 
-    height: 60, 
-    objectFit: 'contain', 
-    alignSelf: 'center' 
-  },
-  footerImage: { 
-    position: 'absolute', 
-    bottom: 10, 
-    left: 30, 
-    width: '90%', 
-    height: 60, 
-    objectFit: 'contain' 
-  },
+  headerImage: { width: '100%', height: 60, objectFit: 'contain', alignSelf: 'center' },
+  footerImage: { position: 'absolute', bottom: 10, left: 30, width: '90%', height: 60, objectFit: 'contain' },
 
   // --- TEXT STYLES ---
   mainTitle: {
@@ -80,7 +68,7 @@ const styles = StyleSheet.create({
 
   // --- TYPOGRAPHY ---
   label: { 
-    fontSize: 5.5, 
+    fontSize: 5, 
     color: '#555', 
     fontFamily: 'Helvetica',
     textTransform: 'uppercase',
@@ -98,9 +86,9 @@ const styles = StyleSheet.create({
   // Section Headers
   sectionHeader: { 
     backgroundColor: '#D1D5DB', 
-    fontSize: 11, 
+    fontSize: 10, 
     fontFamily: 'Helvetica-Bold', 
-    paddingVertical: 4, 
+    paddingVertical: 3, 
     paddingHorizontal: 6, 
     textAlign: 'left', 
     textTransform: 'uppercase',
@@ -110,18 +98,18 @@ const styles = StyleSheet.create({
   },
 
   // --- CHECKBOXES ---
-  checkboxGroup: { flexDirection: 'row', alignItems: 'center' },
-  checkboxLabel: { fontSize: 8, marginLeft: 3, marginRight: 8, color: '#333' },
+  checkboxGroup: { flexDirection: 'row', alignItems: 'center', marginRight: 10 },
+  checkboxLabel: { fontSize: 7, marginLeft: 3, color: '#333' },
   box: { 
-    width: 10, 
-    height: 10, 
+    width: 11, 
+    height: 11, 
     border: '1px solid #000', 
     alignItems: 'center', 
     justifyContent: 'center',
     backgroundColor: '#FFF' 
   },
   check: { 
-    fontSize: 8, 
+    fontSize: 9, 
     fontFamily: 'Helvetica-Bold', 
     marginTop: -1, 
     color: '#000' 
@@ -146,17 +134,11 @@ const styles = StyleSheet.create({
 });
 
 // --- HELPER FUNCTIONS ---
-
 const formatDateToWords = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString; 
-  
-  return date.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 };
 
 const Checkbox = ({ label, checked }) => (
@@ -182,6 +164,10 @@ const EnrollmentPDF = ({ data }) => {
   const isMale = data.sex === 'Male';
   const isFemale = data.sex === 'Female';
   
+  // LOGIC: Show Previous School Info ONLY for specific grade levels
+  const targetGrades = ['Pre-Kindergarten 1', 'Pre-Kindergarten 2', 'Kinder', 'Grade 7', 'Grade 11 (SHS)'];
+  const showPrevSchool = targetGrades.includes(data.gradeLevel);
+
   let parentSignatoryName = '';
   if (data.signatory === 'Mother') parentSignatoryName = data.motherName;
   else if (data.signatory === 'Guardian') parentSignatoryName = data.guardianName;
@@ -197,16 +183,28 @@ const EnrollmentPDF = ({ data }) => {
         <Text style={styles.mainTitle}>Basic Education Enrollment Form</Text>
 
         {/* CONTROLS ROW */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', border: '1px solid #000', padding: 4, marginTop: 2, alignItems: 'center', backgroundColor: '#FAFAFA' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-             <Text style={{ fontSize: 8, color: '#444', marginRight: 4 }}>School Year:</Text>
-             <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 10 }}>{data.schoolYear}</Text>
+        <View style={{ border: '1px solid #000', padding: 4, marginTop: 2, backgroundColor: '#FAFAFA' }}>
+          
+          {/* Row 1: School Year & LRN Status */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 8, color: '#444', marginRight: 4 }}>School Year:</Text>
+                <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 10 }}>{data.schoolYear}</Text>
+             </View>
+             <View style={{ flexDirection: 'row' }}>
+                 <Text style={{ fontSize: 6, marginRight: 6, color: '#555', textTransform: 'uppercase', paddingTop: 1 }}>LRN Status:</Text>
+                 <Checkbox label="With LRN" checked={data.lrnStatus === 'With LRN'} />
+                 <Checkbox label="No LRN" checked={data.lrnStatus === 'No LRN'} />
+             </View>
           </View>
-          <View style={styles.checkboxGroup}>
-             <Text style={{ fontSize: 6, marginRight: 6, color: '#555', textTransform: 'uppercase' }}>Check appropriate box:</Text>
-             <Checkbox label="No LRN" checked={data.lrnStatus === 'No LRN'} />
-             <Checkbox label="With LRN" checked={data.lrnStatus === 'With LRN'} />
-             <Checkbox label="Returning" checked={data.lrnStatus === 'Returning'} />
+
+          {/* Row 2: Student Type (FIXED) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: 2 }}>
+             <Text style={{ fontSize: 6, marginRight: 6, color: '#555', textTransform: 'uppercase' }}>Student Type:</Text>
+             <Checkbox label="New" checked={data.studentType === 'New'} />
+             <Checkbox label="Old" checked={data.studentType === 'Old'} />
+             <Checkbox label="Transferee" checked={data.studentType === 'Transferee'} />
+             <Checkbox label="Returning" checked={data.studentType === 'Returning'} />
           </View>
         </View>
 
@@ -229,7 +227,6 @@ const EnrollmentPDF = ({ data }) => {
           <View style={styles.row}><Cell label="First Name" value={data.firstName} width="100%" noBorder /></View>
           <View style={styles.row}><Cell label="Middle Name" value={data.middleName} width="100%" noBorder /></View>
           
-          {/* Aligned to 25% | 25% | 50% grid */}
           <View style={styles.row}>
              <Cell label="Extension Name" value={data.extension} width="25%" />
              <Cell label="Date of Birth" value={formatDateToWords(data.dob)} width="25%" />
@@ -243,7 +240,6 @@ const EnrollmentPDF = ({ data }) => {
              </View>
           </View>
 
-          {/* Aligned to 25% | 25% | 50% grid */}
           <View style={styles.row}>
              <View style={[styles.cell, { width: '25%' }]}>
                 <Text style={styles.label}>Sex</Text>
@@ -256,7 +252,6 @@ const EnrollmentPDF = ({ data }) => {
              <Cell label="Mother Tongue" value={data.motherTongue} width="50%" noBorder />
           </View>
 
-          {/* Aligned to 75% | 25% grid (Matched with City/Zip) */}
           <View style={styles.row}>
              <Cell label="House Number and Street" value={data.addressStreet} width="75%" />
              <Cell label="Barangay" value={data.addressBarangay} width="25%" noBorder />
@@ -278,23 +273,31 @@ const EnrollmentPDF = ({ data }) => {
              <Cell label="Cellphone No. 2" value={data.contactNumber2} width="50%" noBorder />
           </View>
 
-          {/* 3. RETURNING & SENIOR HIGH */}
-          <Text style={styles.sectionHeader}>Returning Learners / Transferees / Senior High School</Text>
+          {/* 3. PREVIOUS SCHOOL INFORMATION (CONDITIONAL) */}
+          {/* Only shows if Grade Level is Pre-K 1/2, Kinder, Grade 7, or Grade 11 */}
+          {showPrevSchool && (
+            <>
+              <Text style={styles.sectionHeader}>Previous School Information for Grade 7, Grade 11, and Transferee</Text>
+              <View style={styles.row}>
+                 <Cell label="Last School Attended" value={data.lastSchoolName} width="100%" noBorder />
+              </View>
+              <View style={styles.row}>
+                 <Cell label="School Address" value={data.lastSchoolAddress} width="100%" noBorder />
+              </View>
+              <View style={styles.row}>
+                 <Cell label="Last Grade Level" value={data.lastGradeLevel} width="25%" />
+                 <Cell label="Last School Year" value={data.lastSchoolYear} width="25%" />
+                 <Cell label="School ID" value={data.lastSchoolID} width="50%" noBorder />
+              </View>
+            </>
+          )}
+
+          {/* 4. SENIOR HIGH SCHOOL DETAILS */}
+          <Text style={styles.sectionHeader}>For Senior High School Learners</Text>
           
-          {/* Aligned to 25% | 25% | 50% grid */}
-          <View style={styles.row}>
-             <Cell label="Last Grade Level" value={data.lastGradeLevel} width="25%" />
-             <Cell label="Last SY" value={data.lastSchoolYear} width="25%" />
-             <Cell label="School ID" value={data.lastSchoolID} width="50%" noBorder />
-          </View>
-          <View style={styles.row}>
-             <Cell label="Last School Name" value={data.lastSchoolName} width="100%" noBorder />
-          </View>
-          
-          {/* Aligned to 25% | 25% | 50% grid */}
           <View style={styles.row}>
              <View style={[styles.cell, { width: '25%' }]}>
-                <Text style={styles.label}>SHS Semester</Text>
+                <Text style={styles.label}>Semester</Text>
                 <View style={{ flexDirection: 'row', marginTop: 1 }}>
                    <Checkbox label="1st" checked={data.semester === '1st Semester'} />
                    <Checkbox label="2nd" checked={data.semester === '2nd Semester'} />
@@ -313,7 +316,7 @@ const EnrollmentPDF = ({ data }) => {
           </Text>
 
           {/* SIGNATORIES 1: Parent & Student */}
-          <View style={[styles.sigRow, { marginTop: 20 }]}>
+          <View style={[styles.sigRow, { marginTop: 15 }]}>
              <View style={styles.sigBox}>
                 <Text style={styles.sigTypedName}>{parentSignatoryName}</Text>
                 <View style={styles.sigLine} />
@@ -327,7 +330,7 @@ const EnrollmentPDF = ({ data }) => {
           </View>
 
           {/* SIGNATORIES 2: Officials */}
-          <View style={[styles.sigRow, { marginTop: 25 }]}> 
+          <View style={[styles.sigRow, { marginTop: 20 }]}> 
              <View style={styles.sigBox}>
                 <Text style={styles.sigName}>EUSEBIO JR S. LABRADOR, LPT</Text>
                 <Text style={styles.sigTitle}>Registrar</Text>
@@ -339,7 +342,7 @@ const EnrollmentPDF = ({ data }) => {
           </View>
 
           {/* SIGNATORIES 3: Principal */}
-          <View style={{ alignItems: 'center', marginTop: 20 }}>
+          <View style={{ alignItems: 'center', marginTop: 15 }}>
              <Text style={{ fontSize: 7, marginBottom: 1 }}>Approved:</Text>
              <View style={{ width: '40%', alignItems: 'center' }}>
                  <Text style={styles.sigName}>YVONNE T. MADALAG, LPT, MA-ELM</Text>
@@ -349,7 +352,7 @@ const EnrollmentPDF = ({ data }) => {
         </View>
 
         {/* DEPED BOX */}
-        <View style={{ border: '1px solid #000', marginTop: 50, marginBottom: 40, padding: 4 }}>
+        <View style={{ border: '1px solid #000', marginTop: 40, marginBottom: 40, padding: 4 }}>
           <Text style={{ fontSize: 7, fontFamily: 'Helvetica-BoldOblique', marginBottom: 4 }}>
              For use of DepEd Personnel Only. To be filled up by the Class Adviser
           </Text>
