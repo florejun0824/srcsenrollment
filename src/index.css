@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* You can keep your custom body styles below if you have any, but these 3 must be first */
+body {
+  background-color: #f1f5f9; /* Slate-100 to match our design */
+}
