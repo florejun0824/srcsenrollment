@@ -309,13 +309,15 @@ const EnrollmentPDF = ({ data }) => {
         </View>
 
         {/* CERTIFICATION */}
-        <View style={{ marginTop: 8, paddingHorizontal: 5 }}>
-          <Text style={{ fontSize: 7, textAlign: 'justify', lineHeight: 1.2, color: '#333' }}>
-            I hereby certify that the above information given are true and correct to the best of my knowledge and I allow San Ramon Catholic School, Inc. to use my child's details to create/update his/her learner profile in the Learner Information System. The information herein shall be treated as confidential.
-          </Text>
+	<View style={{ marginTop: 8, paddingHorizontal: 5 }}>
+	  <Text style={{ fontSize: 8.5, textAlign: 'justify', lineHeight: 1.2, color: '#333' }}>
+	    I hereby certify that the above information given are true and correct to the best of my knowledge and I allow{' '}
+	    <Text style={{ fontFamily: 'Helvetica-Bold' }}>San Ramon Catholic School, Inc.</Text>
+	    {' '}to use my child's details to create/update his/her learner profile in the Learner Information System. The information herein shall be treated as confidential.
+	  </Text>
 
           {/* SIGNATORIES 1: Parent & Student */}
-          <View style={[styles.sigRow, { marginTop: 15 }]}>
+          <View style={[styles.sigRow, { marginTop: 22 }]}>
              <View style={styles.sigBox}>
                 <Text style={styles.sigTypedName}>{parentSignatoryName}</Text>
                 <View style={styles.sigLine} />
@@ -329,7 +331,7 @@ const EnrollmentPDF = ({ data }) => {
           </View>
 
           {/* SIGNATORIES 2: Officials */}
-          <View style={[styles.sigRow, { marginTop: 20 }]}> 
+          <View style={[styles.sigRow, { marginTop: 22 }]}> 
              <View style={styles.sigBox}>
                 <Text style={styles.sigName}>EUSEBIO JR S. LABRADOR, LPT</Text>
                 <Text style={styles.sigTitle}>Registrar</Text>
@@ -341,7 +343,7 @@ const EnrollmentPDF = ({ data }) => {
           </View>
 
           {/* SIGNATORIES 3: Principal */}
-          <View style={{ alignItems: 'center', marginTop: 15 }}>
+          <View style={{ alignItems: 'center', marginTop: 22 }}>
              <Text style={{ fontSize: 7, marginBottom: 1 }}>Approved:</Text>
              <View style={{ width: '40%', alignItems: 'center' }}>
                  <Text style={styles.sigName}>YVONNE T. MADALAG, LPT, MA-ELM</Text>
@@ -351,7 +353,7 @@ const EnrollmentPDF = ({ data }) => {
         </View>
 
         {/* DEPED BOX */}
-        <View style={{ border: '1px solid #000', marginTop: 40, marginBottom: 40, padding: 4 }}>
+        <View style={{ border: '1px solid #000', marginTop: 30, marginBottom: 40, padding: 4 }}>
           <Text style={{ fontSize: 7, fontFamily: 'Helvetica-BoldOblique', marginBottom: 4 }}>
              For use of DepEd Personnel Only. To be filled up by the Class Adviser
           </Text>
