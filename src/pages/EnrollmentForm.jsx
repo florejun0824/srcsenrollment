@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { Link } from 'react-router-dom'; // Import Link for navigation
 
 // --- MODERN UI COMPONENTS ---
 
@@ -47,47 +48,31 @@ const EnrollmentForm = () => {
   const [submitted, setSubmitted] = useState(false);
 
   // --- CONFIGURATION ---
-  const currentYear = new Date().getFullYear(); // 2025
+  const currentYear = new Date().getFullYear();
   const schoolYearOptions = Array.from({ length: 10 }, (_, i) => {
-    const start = currentYear + 1 + i; // Adds 1 to start at 2026
+    const start = currentYear + 1 + i; 
     return `${start}-${start + 1}`;
   });
 
   // --- STATE MANAGEMENT ---
   const [data, setData] = useState({
-    // Header Data
     schoolYear: schoolYearOptions[0], 
     gradeLevel: '', 
     lrnStatus: 'No LRN', 
-    
-    // Student Information
     psaCert: '', lrn: '', 
     lastName: '', firstName: '', middleName: '', extension: '',
     dob: '', sex: 'Male', age: '', motherTongue: '',
-    
-    // IP Community
-    isIP: false, 
-    ipCommunity: '',
-
-    // Address
+    isIP: false, ipCommunity: '',
     addressStreet: '', addressBarangay: '', addressCity: '', addressProvince: '', addressZip: '',
-
-    // Parent/Guardian
     fatherName: '', motherName: '', guardianName: '', 
     contactNumber1: '', contactNumber2: '',
-    
-    // Signatory Selection
     signatory: 'Father',
-
-    // Returning / Transferee
     lastGradeLevel: '', lastSchoolYear: '', lastSchoolName: '', lastSchoolID: '', lastSchoolAddress: '',
-
-    // SHS Details
     semester: '', track: '', strand: ''
   });
 
   // --- LOGIC: TRACK & STRAND DISABLING ---
-  const startYear = parseInt(data.schoolYear.split('-')[0]); // Extract 2026 from "2026-2027"
+  const startYear = parseInt(data.schoolYear.split('-')[0]); 
   const isG11 = data.gradeLevel === 'Grade 11 (SHS)';
   const isG12 = data.gradeLevel === 'Grade 12 (SHS)';
 
@@ -95,30 +80,24 @@ const EnrollmentForm = () => {
 
   // Rule 1: SY 2026-2027
   if (startYear === 2026) {
-     if (isG11) isTrackDisabled = true; // Disabled for G11
-     if (isG12) isTrackDisabled = false; // Enabled for G12
+     if (isG11) isTrackDisabled = true; 
+     if (isG12) isTrackDisabled = false; 
   } 
   // Rule 2: SY 2027 Onwards
   else if (startYear >= 2027) {
-     isTrackDisabled = true; // Disabled for EVERYONE
+     isTrackDisabled = true; 
   }
 
-  // Strand Visibility: Show only if Track is enabled AND it's Grade 12 (as per previous specific add request)
-  // or generally enabled if not restricted.
-  // Based on your specific "add it if Grade 12 2026" rule:
   const showStrand = !isTrackDisabled && isG12 && startYear === 2026;
 
-  // Auto-clear data if disabled
   useEffect(() => {
     if (isTrackDisabled) {
       setData(prev => ({ ...prev, track: '', strand: '' }));
     }
-    // Also clear strand if hidden
     if (!showStrand && data.strand !== '') {
       setData(prev => ({ ...prev, strand: '' }));
     }
   }, [isTrackDisabled, showStrand, data.strand]);
-
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -154,10 +133,7 @@ const EnrollmentForm = () => {
           </div>
           <h2 className="text-3xl font-extrabold text-gray-800 mb-3">Enrollment Successful!</h2>
           <p className="text-gray-500 mb-8 leading-relaxed">The student data has been officially recorded in the system.</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="w-full bg-[#800000] text-white font-bold py-4 rounded-xl hover:bg-[#600000] transition-colors shadow-lg"
-          >
+          <button onClick={() => window.location.reload()} className="w-full bg-[#800000] text-white font-bold py-4 rounded-xl hover:bg-[#600000] transition-colors shadow-lg">
             Enroll Another Student
           </button>
         </div>
@@ -169,23 +145,35 @@ const EnrollmentForm = () => {
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
         
-        {/* HEADER */}
+        {/* HEADER AREA */}
         <div className="bg-[#800000] py-10 px-8 text-center relative overflow-hidden">
+          
+          {/* DECORATIVE ELEMENTS */}
           <div className="absolute top-0 left-0 w-32 h-32 bg-[#FFD700] rounded-full -translate-x-10 -translate-y-10 opacity-20"></div>
           <div className="absolute bottom-0 right-0 w-40 h-40 bg-[#FFD700] rounded-full translate-x-10 translate-y-10 opacity-20"></div>
+          
+          {/* --- ADMIN PORTAL BUTTON (macOS Style) --- */}
+          <Link 
+            to="/admin" 
+            className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-lg hover:bg-white/20 transition-all duration-300 group"
+          >
+            <span className="text-[10px] font-bold text-white/90 uppercase tracking-wider group-hover:text-white">Admin Portal</span>
+            <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-white text-xs group-hover:bg-white/30">→</div>
+          </Link>
+          {/* ----------------------------------------- */}
+
           <div className="relative z-10 flex flex-col items-center">
-            <img src="/logo.png" alt="San Ramon Logo" className="w-24 h-24 mb-4 drop-shadow-lg object-contain" />
+            <img src="/1.png" alt="San Ramon Logo" className="w-24 h-24 mb-4 drop-shadow-lg object-contain" />
             <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">SAN RAMON CATHOLIC SCHOOL</h1>
             <p className="text-[#FFD700] mt-2 font-bold uppercase tracking-widest text-sm">Official Enrollment System</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
-
+          
           {/* 1. ENROLLMENT STATUS & GRADE LEVEL */}
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              
               <div className="col-span-1">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">School Year</label>
                 <div className="relative">
@@ -195,7 +183,6 @@ const EnrollmentForm = () => {
                   <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">▼</div>
                 </div>
               </div>
-
               <div className="col-span-1">
                  <label className="text-xs font-bold text-[#800000] uppercase tracking-wider mb-2 block">Grade Level to Enroll</label>
                  <div className="relative">
@@ -209,16 +196,11 @@ const EnrollmentForm = () => {
                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">▼</div>
                  </div>
               </div>
-
               <div className="col-span-1">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Student Status</label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {['No LRN', 'With LRN', 'Returning'].map((status) => (
-                    <div key={status} onClick={() => setData({...data, lrnStatus: status})} 
-                      className={`cursor-pointer text-center py-3 px-2 rounded-lg border text-xs font-bold uppercase transition-all
-                      ${data.lrnStatus === status ? 'bg-[#800000] text-white border-[#800000]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                      {status}
-                    </div>
+                    <div key={status} onClick={() => setData({...data, lrnStatus: status})} className={`cursor-pointer text-center py-3 px-2 rounded-lg border text-xs font-bold uppercase transition-all ${data.lrnStatus === status ? 'bg-[#800000] text-white border-[#800000]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{status}</div>
                   ))}
                 </div>
               </div>
@@ -236,7 +218,6 @@ const EnrollmentForm = () => {
               <InputGroup label="Middle Name" name="middleName" value={data.middleName} onChange={handleChange} />
               <InputGroup label="Extension (Jr.)" name="extension" value={data.extension} onChange={handleChange} />
               <InputGroup label="Date of Birth" name="dob" type="date" value={data.dob} onChange={handleChange} required width="md:col-span-1" />
-              
               <div className="md:col-span-1">
                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1 block">Sex</label>
                  <div className="flex gap-3">
@@ -246,7 +227,6 @@ const EnrollmentForm = () => {
               </div>
               <InputGroup label="Age" name="age" type="number" value={data.age} onChange={handleChange} width="md:col-span-1" />
               <InputGroup label="Mother Tongue" name="motherTongue" value={data.motherTongue} onChange={handleChange} width="md:col-span-1" />
-            
               <div className="md:col-span-4 bg-gray-50 rounded-xl p-6 border border-gray-200 mt-2">
                  <div className="flex flex-col md:flex-row md:items-center gap-6">
                     <span className="text-sm font-bold text-gray-700 uppercase">Belonging to any Indigenous People (IP) Community?</span>
@@ -255,10 +235,7 @@ const EnrollmentForm = () => {
                        <RadioButton name="isIP" value="true" label="Yes" checked={data.isIP === true} onChange={handleChange} />
                     </div>
                     {data.isIP && (
-                      <input type="text" placeholder="Please specify community" value={data.ipCommunity}
-                        onChange={(e) => setData({...data, ipCommunity: e.target.value})}
-                        className="flex-1 border-b-2 border-gray-300 bg-transparent outline-none px-2 py-1 text-sm focus:border-[#800000] transition-colors"
-                      />
+                      <input type="text" placeholder="Please specify community" value={data.ipCommunity} onChange={(e) => setData({...data, ipCommunity: e.target.value})} className="flex-1 border-b-2 border-gray-300 bg-transparent outline-none px-2 py-1 text-sm focus:border-[#800000] transition-colors" />
                     )}
                  </div>
               </div>
@@ -284,7 +261,6 @@ const EnrollmentForm = () => {
               <InputGroup label="Father's Full Name" name="fatherName" value={data.fatherName} onChange={handleChange} placeholder="Last, First, Middle" />
               <InputGroup label="Mother's Maiden Name" name="motherName" value={data.motherName} onChange={handleChange} placeholder="Last, First, Middle" />
               <InputGroup label="Guardian's Name" name="guardianName" value={data.guardianName} onChange={handleChange} placeholder="Last, First, Middle" />
-              
               <div className="grid grid-cols-2 gap-4">
                  <InputGroup label="Contact No. 1" name="contactNumber1" value={data.contactNumber1} onChange={handleChange} type="tel" required />
                  <InputGroup label="Contact No. 2" name="contactNumber2" value={data.contactNumber2} onChange={handleChange} type="tel" />
@@ -309,12 +285,11 @@ const EnrollmentForm = () => {
             </div>
           </section>
 
-          {/* 6. SHS DETAILS (CONDITIONAL) */}
+          {/* 6. SHS DETAILS (Conditional) */}
           {data.gradeLevel.includes('SHS') && (
             <div className="bg-[#FFF8E1] rounded-2xl p-8 border border-[#FFD700] relative overflow-hidden transition-all duration-500 animate-fade-in-down">
                 <div className="absolute top-0 right-0 text-[#FFECB3] text-9xl font-bold -mt-10 -mr-10 select-none opacity-50">SHS</div>
                 <SectionHeader title="Senior High School Details" icon="🎓" />
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
                     <div className="col-span-1">
                         <label className="text-xs font-bold text-[#800000] uppercase tracking-wider mb-2 block">Semester</label>
@@ -323,56 +298,28 @@ const EnrollmentForm = () => {
                             <RadioButton name="semester" value="2nd Semester" label="2nd Sem" checked={data.semester === '2nd Semester'} onChange={handleChange} />
                         </div>
                     </div>
-                    
-                    {/* TRACK & STRAND INPUTS */}
                     <div className="col-span-1 space-y-4">
-                        <InputGroup 
-                          label="Track" 
-                          name="track" 
-                          value={data.track} 
-                          onChange={handleChange} 
-                          placeholder="e.g. Academic" 
-                          disabled={isTrackDisabled}
-                        />
-                        
-                        {/* Strand only shows if Track is enabled (and matches criteria) */}
-                        {showStrand && (
-                          <div className="animate-fade-in-down">
-                            <InputGroup 
-                              label="Strand" 
-                              name="strand" 
-                              value={data.strand} 
-                              onChange={handleChange} 
-                              placeholder="e.g. STEM" 
-                            />
-                          </div>
-                        )}
+                        <InputGroup label="Track" name="track" value={data.track} onChange={handleChange} placeholder="e.g. Academic" disabled={isTrackDisabled} />
+                        {showStrand && (<div className="animate-fade-in-down"><InputGroup label="Strand" name="strand" value={data.strand} onChange={handleChange} placeholder="e.g. STEM" /></div>)}
                     </div>
                 </div>
             </div>
           )}
           
-          {/* SIGNATORY SELECTION & SUBMIT */}
           <div className="bg-gray-50 rounded-xl p-8 border border-gray-200">
              <div className="mb-6">
-                <label className="text-xs font-bold text-[#800000] uppercase tracking-wider mb-3 block">
-                    Whose name should appear on the printed form as Parent/Guardian?
-                </label>
+                <label className="text-xs font-bold text-[#800000] uppercase tracking-wider mb-3 block">Whose name should appear on the printed form as Parent/Guardian?</label>
                 <div className="flex flex-wrap gap-6">
                     <RadioButton name="signatory" value="Father" label="Father" checked={data.signatory === 'Father'} onChange={handleChange} />
                     <RadioButton name="signatory" value="Mother" label="Mother" checked={data.signatory === 'Mother'} onChange={handleChange} />
                     <RadioButton name="signatory" value="Guardian" label="Guardian" checked={data.signatory === 'Guardian'} onChange={handleChange} />
                 </div>
              </div>
-             
              <button type="submit" disabled={loading} className={`w-full py-4 px-6 rounded-xl font-black text-lg text-white shadow-xl transform transition-all duration-200 ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#800000] hover:bg-[#600000] hover:-translate-y-1 hover:shadow-2xl active:scale-[0.99]'}`}>
                {loading ? 'PROCESSING...' : 'SUBMIT OFFICIAL ENROLLMENT'}
              </button>
-             <p className="text-center text-gray-400 text-xs mt-6 px-4">
-               By clicking submit, I certify that the information above is true and correct to the best of my knowledge and consent to the Data Privacy Act of 2012.
-             </p>
+             <p className="text-center text-gray-400 text-xs mt-6 px-4">By clicking submit, I certify that the information above is true and correct to the best of my knowledge and consent to the Data Privacy Act of 2012.</p>
           </div>
-
         </form>
       </div>
     </div>
