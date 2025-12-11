@@ -222,13 +222,15 @@ const EnrollmentForm = () => {
     const targetGradesForPrevSchool = ['Pre-Kindergarten 1', 'Pre-Kindergarten 2', 'Kinder', 'Grade 7', 'Grade 11 (SHS)'];
     const showPrevSchool = targetGradesForPrevSchool.includes(data.gradeLevel) || data.studentType === 'Transferee' || data.studentType === 'Returning';
 
-    // --- HANDLER WITH AUTO-CAPS ---
+    // --- HANDLER WITH AUTO-CAPS FIX ---
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         
         // AUTO-CAPS LOGIC
+        // FIXED: Added 'type !== "radio"' to prevent radio button values from being uppercased
+        // which breaks logic like "Male" vs "MALE"
         let finalValue = value;
-        if (typeof value === 'string' && type !== 'date' && type !== 'password' && type !== 'email') {
+        if (typeof value === 'string' && type !== 'date' && type !== 'password' && type !== 'email' && type !== 'radio') {
             finalValue = value.toUpperCase();
         }
 
@@ -366,7 +368,6 @@ const EnrollmentForm = () => {
                             <p className="text-[#FFD700] font-bold uppercase tracking-widest text-xs md:text-sm mt-1">Catholic School, Inc.</p>
                         </div>
                     </div>
-                    {/* BACK BUTTON (Admin Link Removed) */}
                     <Link to="/" className="px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-all flex items-center gap-2">
                          <span className="opacity-70">←</span> Back to Menu
                     </Link>
