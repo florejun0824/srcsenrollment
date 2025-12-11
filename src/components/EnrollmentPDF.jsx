@@ -151,7 +151,6 @@ const EnrollmentPDF = ({ data }) => {
 
         <View>
           <Text style={styles.mainTitle}>Basic Education Enrollment Form</Text>
-          <Text style={styles.subAddress}>Brgy. Su-ay, Himamaylan City, Negros Occidental</Text>
         </View>
 
         {/* 2. SY & CHECKBOXES */}
