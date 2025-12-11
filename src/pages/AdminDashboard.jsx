@@ -54,7 +54,8 @@ const LoginView = () => {
       <div className="w-full max-w-[360px]">
         <div className="text-center mb-10">
            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">
-             <span className="text-2xl">🔐</span>
+             {/* REPLACED LOCK EMOJI WITH LOGO HERE TOO FOR CONSISTENCY */}
+             <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
            </div>
            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Admin Portal</h1>
            <p className="text-xs text-gray-500 font-medium mt-1">San Ramon Catholic School</p>
@@ -141,7 +142,8 @@ const DashboardView = ({ user }) => {
          {/* HEADER */}
          <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
             <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-[#800000] rounded-xl flex items-center justify-center text-white font-bold shadow-sm">SR</div>
+                {/* --- REPLACED SR BOX WITH LOGO IMAGE --- */}
+                <img src="/logo.png" alt="San Ramon Logo" className="w-10 h-10 object-contain drop-shadow-sm" />
                 <div>
                    <h1 className="text-lg font-bold text-gray-900 tracking-tight">Records Database</h1>
                    <p className="text-xs font-medium text-gray-400">School Year {selectedYear}</p>
@@ -179,7 +181,7 @@ const DashboardView = ({ user }) => {
             </select>
          </div>
 
-         {/* --- ENROLLMENT SUMMARY SECTION (Added) --- */}
+         {/* --- ENROLLMENT SUMMARY SECTION --- */}
          <div className="px-8 py-4 bg-gray-50/50 border-b border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
             
             {/* Card 1: Total Enrolled */}
