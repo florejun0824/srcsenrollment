@@ -3,15 +3,15 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
-// --- REPLACE THIS OBJECT WITH YOUR OWN FROM FIREBASE CONSOLE ---
+// --- SECURITY: USE ENVIRONMENT VARIABLES ---
 const firebaseConfig = {
-  apiKey: "AIzaSyD8eJJo2S8TeBN_NxuW3cAoYUfEQ9f8UEw",
-  authDomain: "srcs-enrollment.firebaseapp.com",
-  projectId: "srcs-enrollment",
-  storageBucket: "srcs-enrollment.firebasestorage.app",
-  messagingSenderId: "253422473416",
-  appId: "1:253422473416:web:70e6e58329964e2caf95fd",
-  measurementId: "G-HSSK4FFZQL"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 // --------------------------------------------------------------
 
