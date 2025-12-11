@@ -227,10 +227,15 @@ const EnrollmentForm = () => {
         const { name, value, type, checked } = e.target;
         
         // AUTO-CAPS LOGIC
-        // FIXED: Added 'type !== "radio"' to prevent radio button values from being uppercased
-        // which breaks logic like "Male" vs "MALE"
+        // FIXED: Excluded 'select-one' so dropdown values (Mixed Case) are not forced to Uppercase
         let finalValue = value;
-        if (typeof value === 'string' && type !== 'date' && type !== 'password' && type !== 'email' && type !== 'radio') {
+        if (typeof value === 'string' && 
+            type !== 'date' && 
+            type !== 'password' && 
+            type !== 'email' && 
+            type !== 'radio' && 
+            type !== 'select-one') {  // <--- ADDED THIS CHECK
+            
             finalValue = value.toUpperCase();
         }
 
