@@ -131,8 +131,8 @@ const EnrollmentForm = () => {
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-5xl">✓</span>
           </div>
-          <h2 className="text-3xl font-extrabold text-gray-800 mb-3">Enrollment Successful!</h2>
-          <p className="text-gray-500 mb-8 leading-relaxed">The student data has been officially recorded in the system.</p>
+          <h2 className="text-3xl font-extrabold text-gray-800 mb-3">Pre-Enrollment Successful!</h2>
+          <p className="text-gray-500 mb-8 leading-relaxed">The student data has been officially recorded in the system. Further announcements for the complete Enrollment Process will be posted in the official Facebook Page.</p>
           <button onClick={() => window.location.reload()} className="w-full bg-[#800000] text-white font-bold py-4 rounded-xl hover:bg-[#600000] transition-colors shadow-lg">
             Enroll Another Student
           </button>
