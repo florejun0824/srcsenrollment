@@ -276,7 +276,7 @@ const EnrollmentPDF = ({ data }) => {
           {/* 3. PREVIOUS SCHOOL INFORMATION (CONDITIONAL) */}
           {showPrevSchool && (
             <>
-              <Text style={styles.sectionHeader}>Previous School Information</Text>
+              <Text style={styles.sectionHeader}>Previous School Information for Kindergarten, Grade 7, Grade 11, Returnee, and Transferee</Text>
               <View style={styles.row}>
                  <Cell label="Last School Attended" value={data.lastSchoolName} width="100%" noBorder />
               </View>
