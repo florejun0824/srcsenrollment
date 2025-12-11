@@ -1,10 +1,10 @@
 // src/pages/EnrollmentForm.jsx
 import { useState, useEffect } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom'; 
 
-// --- MODERN UI COMPONENTS ---
+// --- COMPONENTS ---
 
 const InputGroup = ({ label, name, value, onChange, type="text", required=false, placeholder="", width="col-span-1", disabled=false }) => (
   <div className={`flex flex-col ${width}`}>
@@ -43,9 +43,151 @@ const RadioButton = ({ name, value, label, checked, onChange }) => (
   </label>
 );
 
+// --- DUPLICATE FOUND MODAL ---
+const DuplicateModal = ({ onRetrieve, onCancel, studentName }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 text-center">
+      <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+        ℹ️
+      </div>
+      <h2 className="text-xl font-extrabold text-gray-900 mb-2">Existing Record Found</h2>
+      <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+        We found an existing enrollment for <strong>{studentName}</strong> with the same Date of Birth.
+      </p>
+      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-xs text-blue-800 text-left mb-6">
+        <strong>What would you like to do?</strong><br/>
+        The system can retrieve the existing data so you can update the information instead of creating a double entry.
+      </div>
+      <div className="flex gap-3">
+         <button onClick={onCancel} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors">
+           Cancel
+         </button>
+         <button onClick={onRetrieve} className="flex-1 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-all">
+           Retrieve & Update
+         </button>
+      </div>
+    </div>
+  </div>
+);
+
+// --- REVIEW MODAL COMPONENT ---
+const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
+  const DataRow = ({ label, value }) => (
+    <div className="grid grid-cols-3 border-b border-gray-100 py-2">
+      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider col-span-1">{label}</span>
+      <span className="text-sm font-semibold text-gray-800 col-span-2 break-words">{value || <span className="text-gray-300 italic">N/A</span>}</span>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        
+        {/* Modal Header */}
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50 rounded-t-2xl">
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-[#800000] text-white rounded-full flex items-center justify-center text-xl">
+                {isUpdateMode ? '🔄' : '📋'}
+             </div>
+             <div>
+               <h2 className="text-xl font-extrabold text-gray-900">{isUpdateMode ? 'Update Enrollment' : 'Review Application'}</h2>
+               <p className="text-xs text-gray-500">
+                  {isUpdateMode ? 'You are updating an existing record.' : 'Please verify all details before submitting.'}
+               </p>
+             </div>
+           </div>
+           <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="p-8 overflow-y-auto space-y-8">
+           
+           {/* Section 1 */}
+           <div>
+              <h4 className="text-[#800000] font-bold uppercase text-xs tracking-widest mb-3 border-b-2 border-[#800000] inline-block pb-1">Enrollment Details</h4>
+              <DataRow label="School Year" value={data.schoolYear} />
+              <DataRow label="Grade Level" value={data.gradeLevel} />
+              <DataRow label="Student Type" value={data.studentType} />
+              <DataRow label="LRN Status" value={data.lrnStatus} />
+           </div>
+
+           {/* Section 2 */}
+           <div>
+              <h4 className="text-[#800000] font-bold uppercase text-xs tracking-widest mb-3 border-b-2 border-[#800000] inline-block pb-1">Student Information</h4>
+              <DataRow label="Name" value={`${data.lastName}, ${data.firstName} ${data.middleName} ${data.extension}`} />
+              <DataRow label="PSA Cert No." value={data.psaCert} />
+              <DataRow label="LRN" value={data.lrn} />
+              <DataRow label="Date of Birth" value={data.dob} />
+              <DataRow label="Sex" value={data.sex} />
+              <DataRow label="Age" value={data.age} />
+              <DataRow label="Mother Tongue" value={data.motherTongue} />
+              <DataRow label="IP Community" value={data.isIP ? `Yes - ${data.ipCommunity}` : 'No'} />
+              <DataRow label="Address" value={`${data.addressStreet}, ${data.addressBarangay}, ${data.addressCity}, ${data.addressProvince} ${data.addressZip}`} />
+           </div>
+
+           {/* Section 3 */}
+           <div>
+              <h4 className="text-[#800000] font-bold uppercase text-xs tracking-widest mb-3 border-b-2 border-[#800000] inline-block pb-1">Parents / Guardian</h4>
+              <DataRow label="Father" value={data.fatherName} />
+              <DataRow label="Mother" value={data.motherName} />
+              <DataRow label="Guardian" value={data.guardianName} />
+              <DataRow label="Contact 1" value={data.contactNumber1} />
+              <DataRow label="Contact 2" value={data.contactNumber2} />
+           </div>
+
+           {/* Section 4 */}
+           {(data.lastSchoolName) && (
+             <div>
+                <h4 className="text-[#800000] font-bold uppercase text-xs tracking-widest mb-3 border-b-2 border-[#800000] inline-block pb-1">Previous School</h4>
+                <DataRow label="School Name" value={data.lastSchoolName} />
+                <DataRow label="Address" value={data.lastSchoolAddress} />
+                <DataRow label="Last Grade" value={data.lastGradeLevel} />
+                <DataRow label="Last SY" value={data.lastSchoolYear} />
+                <DataRow label="ID" value={data.lastSchoolID} />
+             </div>
+           )}
+
+           {/* Section 5 */}
+           {data.gradeLevel.includes('SHS') && (
+             <div>
+                <h4 className="text-[#800000] font-bold uppercase text-xs tracking-widest mb-3 border-b-2 border-[#800000] inline-block pb-1">SHS Details</h4>
+                <DataRow label="Semester" value={data.semester} />
+                <DataRow label="Track" value={data.track} />
+                <DataRow label="Strand" value={data.strand} />
+             </div>
+           )}
+
+           <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 text-xs text-yellow-800 text-center">
+             <strong>Declaration:</strong> I hereby certify that the above information given are true and correct to the best of my knowledge and I allow San Ramon Catholic School, Inc. to use my child's details to create/update his/her learner profile.
+           </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-6 border-t border-gray-100 flex gap-4 bg-gray-50 rounded-b-2xl">
+           <button onClick={onCancel} className="flex-1 py-3.5 rounded-xl font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 transition-colors">
+             Edit Information
+           </button>
+           <button onClick={onConfirm} disabled={loading} className="flex-1 py-3.5 rounded-xl font-bold text-white bg-[#800000] hover:bg-[#600000] shadow-lg transition-all flex items-center justify-center gap-2">
+             {loading ? 'Processing...' : (isUpdateMode ? 'Confirm Update 🔄' : 'Confirm Submission ✓')}
+           </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 const EnrollmentForm = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  
+  // Modal States
+  const [showReview, setShowReview] = useState(false); 
+  const [showDuplicate, setShowDuplicate] = useState(false);
+  
+  const [existingId, setExistingId] = useState(null); 
+  const [tempDuplicateData, setTempDuplicateData] = useState(null); // Holds data found in DB
 
   // --- CONFIGURATION ---
   const currentYear = new Date().getFullYear();
@@ -54,11 +196,11 @@ const EnrollmentForm = () => {
     return `${start}-${start + 1}`;
   });
 
-  // --- STATE MANAGEMENT ---
+  // --- STATE ---
   const [data, setData] = useState({
     schoolYear: schoolYearOptions[0], 
     gradeLevel: '', 
-    studentType: 'New', // Added Student Type
+    studentType: 'New', 
     lrnStatus: 'No LRN', 
     psaCert: '', lrn: '', 
     lastName: '', firstName: '', middleName: '', extension: '',
@@ -68,11 +210,11 @@ const EnrollmentForm = () => {
     fatherName: '', motherName: '', guardianName: '', 
     contactNumber1: '', contactNumber2: '',
     signatory: 'Father',
-    lastGradeLevel: '', lastSchoolYear: '', lastSchoolName: '', lastSchoolAddress: '', // Removed ID from here if not needed or added below
+    lastGradeLevel: '', lastSchoolYear: '', lastSchoolName: '', lastSchoolAddress: '', lastSchoolID: '',
     semester: '', track: '', strand: ''
   });
 
-  // --- LOGIC: SHS TRACK/STRAND ---
+  // --- LOGIC ---
   const startYear = parseInt(data.schoolYear.split('-')[0]); 
   const isG11 = data.gradeLevel === 'Grade 11 (SHS)';
   const isG12 = data.gradeLevel === 'Grade 12 (SHS)';
@@ -86,48 +228,125 @@ const EnrollmentForm = () => {
   }
   const showStrand = !isTrackDisabled && isG12 && startYear === 2026;
 
-  // --- LOGIC: AGE WARNING ---
-  let ageWarning = null;
-  const cutoffYear = startYear; // e.g., 2026
+  // AGE CHECK
+  let ageRule = null;
+  let ageError = null;
+  const cutoffYear = startYear; 
   
-  if (data.gradeLevel === 'Pre-Kindergarten 1') {
-    ageWarning = `Learner must be 3 years old on or before October 31, ${cutoffYear}.`;
-  } else if (data.gradeLevel === 'Pre-Kindergarten 2') {
-    ageWarning = `Learner must be 4 years old on or before October 31, ${cutoffYear}.`;
-  } else if (data.gradeLevel === 'Kinder') {
-    ageWarning = `Learner must be 5 years old on or before October 31, ${cutoffYear}.`;
+  if (data.gradeLevel === 'Pre-Kindergarten 1') ageRule = `Learner must be 3 years old on or before October 31, ${cutoffYear}.`;
+  else if (data.gradeLevel === 'Pre-Kindergarten 2') ageRule = `Learner must be 4 years old on or before October 31, ${cutoffYear}.`;
+  else if (data.gradeLevel === 'Kinder') ageRule = `Learner must be 5 years old on or before October 31, ${cutoffYear}.`;
+
+  if (data.dob && ageRule) {
+      const cutoffDate = new Date(startYear, 9, 31); 
+      const birthDate = new Date(data.dob);
+      let calculatedAge = cutoffDate.getFullYear() - birthDate.getFullYear();
+      const m = cutoffDate.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && cutoffDate.getDate() < birthDate.getDate())) calculatedAge--;
+
+      if (data.gradeLevel === 'Pre-Kindergarten 1' && calculatedAge < 3) ageError = true;
+      else if (data.gradeLevel === 'Pre-Kindergarten 2' && calculatedAge < 4) ageError = true;
+      else if (data.gradeLevel === 'Kinder' && calculatedAge < 5) ageError = true;
   }
 
-  // --- LOGIC: SHOW PREVIOUS SCHOOL INFO ---
-  // Show if specific grades OR if Transferee/Returning
   const targetGradesForPrevSchool = ['Pre-Kindergarten 1', 'Pre-Kindergarten 2', 'Kinder', 'Grade 7', 'Grade 11 (SHS)'];
   const showPrevSchool = targetGradesForPrevSchool.includes(data.gradeLevel) || data.studentType === 'Transferee' || data.studentType === 'Returning';
 
+  // --- REAL-TIME FORM VALIDITY CHECK ---
+  const isFormValid = () => {
+    // 1. Check Age Error
+    if (ageError) return false;
+
+    // 2. Check Standard Required Fields
+    if (!data.gradeLevel || !data.lastName || !data.firstName || !data.dob || !data.fatherName || !data.motherName || !data.contactNumber1) {
+        return false;
+    }
+
+    // 3. Check Conditional Required Fields (Previous School)
+    if (showPrevSchool) {
+        if (!data.lastSchoolName || !data.lastSchoolAddress) return false;
+    }
+
+    return true;
+  };
+
   useEffect(() => {
-    if (isTrackDisabled) {
-      setData(prev => ({ ...prev, track: '', strand: '' }));
-    }
-    if (!showStrand && data.strand !== '') {
-      setData(prev => ({ ...prev, strand: '' }));
-    }
+    if (isTrackDisabled) setData(prev => ({ ...prev, track: '', strand: '' }));
+    if (!showStrand && data.strand !== '') setData(prev => ({ ...prev, strand: '' }));
   }, [isTrackDisabled, showStrand, data.strand]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const finalValue = type === 'checkbox' ? checked : value;
+    if (name === 'isIP') setData(prev => ({ ...prev, isIP: value === 'true', ipCommunity: value === 'false' ? '' : prev.ipCommunity }));
+    else setData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  // STEP 1: INITIAL SUBMIT -> CHECK DUPLICATE
+  const handleInitialSubmit = async (e) => {
+    e.preventDefault();
+    if (!isFormValid()) return; 
+
+    // Prevent checking if we are already in update mode
+    if (!existingId) {
+        setLoading(true);
+        // CHECK FOR DUPLICATES: First Name + Last Name + DOB
+        const q = query(collection(db, "enrollments"), 
+            where("lastName", "==", data.lastName),
+            where("firstName", "==", data.firstName),
+            where("dob", "==", data.dob)
+        );
+        
+        try {
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                // DUPLICATE FOUND
+                const docSnap = querySnapshot.docs[0];
+                const foundData = docSnap.data();
+                
+                // Store found data temporarily and show duplicate modal
+                setTempDuplicateData({ ...foundData, id: docSnap.id });
+                setShowDuplicate(true);
+                setLoading(false);
+                return; 
+            }
+        } catch (error) {
+            console.error("Error checking duplicates:", error);
+            alert("Connection error checking records.");
+            setLoading(false);
+            return;
+        }
+        setLoading(false);
+    }
     
-    if (name === 'isIP') {
-        setData(prev => ({ ...prev, isIP: value === 'true', ipCommunity: value === 'false' ? '' : prev.ipCommunity }));
-    } else {
-        setData(prev => ({ ...prev, [name]: finalValue }));
+    // If no duplicate (or already in update mode), proceed to Review
+    setShowReview(true);
+  };
+
+  // HANDLER: Load Duplicate Data
+  const handleRetrieveDuplicate = () => {
+    if (tempDuplicateData) {
+        setData(tempDuplicateData);
+        setExistingId(tempDuplicateData.id);
+        setShowDuplicate(false);
+        // Scroll to top so they can see the data
+        window.scrollTo(0, 0);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // STEP 2: FINAL CONFIRM -> WRITE TO DB
+  const handleFinalSubmit = async () => {
     setLoading(true);
     try {
-      await addDoc(collection(db, "enrollments"), { ...data, createdAt: new Date() });
+      if (existingId) {
+          // UPDATE EXISTING
+          const docRef = doc(db, "enrollments", existingId);
+          await updateDoc(docRef, { ...data, updatedAt: new Date() });
+      } else {
+          // CREATE NEW
+          await addDoc(collection(db, "enrollments"), { ...data, createdAt: new Date() });
+      }
+      
+      setShowReview(false);
       setSubmitted(true);
       window.scrollTo(0,0);
     } catch (error) {
@@ -144,10 +363,10 @@ const EnrollmentForm = () => {
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-5xl">✓</span>
           </div>
-          <h2 className="text-3xl font-extrabold text-gray-800 mb-3">Pre-Enrollment Successful!</h2>
-          <p className="text-gray-500 mb-8 leading-relaxed">The student data has been officially recorded in the system.</p>
+          <h2 className="text-3xl font-extrabold text-gray-800 mb-3">{existingId ? 'Update Successful!' : 'Enrollment Successful!'}</h2>
+          <p className="text-gray-500 mb-8 leading-relaxed">The student data has been officially {existingId ? 'updated' : 'recorded'} in the system.</p>
           <button onClick={() => window.location.reload()} className="w-full bg-[#800000] text-white font-bold py-4 rounded-xl hover:bg-[#600000] transition-colors shadow-lg">
-            Enroll Another Student
+            {existingId ? 'Return to Form' : 'Enroll Another Student'}
           </button>
         </div>
       </div>
@@ -156,6 +375,26 @@ const EnrollmentForm = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
+      
+      {/* MODALS */}
+      {showDuplicate && (
+          <DuplicateModal 
+             studentName={`${data.firstName} ${data.lastName}`}
+             onCancel={() => setShowDuplicate(false)}
+             onRetrieve={handleRetrieveDuplicate}
+          />
+      )}
+
+      {showReview && (
+        <ReviewModal 
+            data={data} 
+            loading={loading}
+            isUpdateMode={!!existingId}
+            onCancel={() => setShowReview(false)} 
+            onConfirm={handleFinalSubmit} 
+        />
+      )}
+
       <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
         
         {/* HEADER AREA */}
@@ -175,7 +414,8 @@ const EnrollmentForm = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
+        {/* Change form onSubmit to handleInitialSubmit */}
+        <form onSubmit={handleInitialSubmit} className="p-8 md:p-12 space-y-12">
           
           {/* 1. ENROLLMENT STATUS & GRADE LEVEL */}
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
@@ -207,11 +447,16 @@ const EnrollmentForm = () => {
                    </select>
                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">▼</div>
                  </div>
-                 {/* AGE WARNING DISPLAY */}
-                 {ageWarning && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md text-[10px] text-yellow-800 font-bold flex items-start gap-2">
-                        <span>⚠️</span>
-                        <span>{ageWarning}</span>
+                 
+                 {/* AGE CHECK DISPLAY */}
+                 {ageRule && !ageError && (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md text-[10px] text-yellow-800 font-bold flex items-start gap-2 animate-fade-in-down">
+                        <span>ℹ️</span><span>{ageRule}</span>
+                    </div>
+                 )}
+                 {ageError && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md text-[10px] text-red-800 font-bold flex items-start gap-2 animate-pulse">
+                        <span>⛔</span><span>Age Requirement Not Met</span>
                     </div>
                  )}
               </div>
@@ -299,7 +544,8 @@ const EnrollmentForm = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <InputGroup label="Father's Full Name" name="fatherName" value={data.fatherName} onChange={handleChange} placeholder="Last, First, Middle" required />
               <InputGroup label="Mother's Maiden Name" name="motherName" value={data.motherName} onChange={handleChange} placeholder="Last, First, Middle" required />
-              <InputGroup label="Guardian's Name" name="guardianName" value={data.guardianName} onChange={handleChange} placeholder="Last, First, Middle" required />
+              {/* Guardian: Removed 'required', added placeholder text */}
+              <InputGroup label="Guardian's Name" name="guardianName" value={data.guardianName} onChange={handleChange} placeholder="Type N/A if not applicable" />
               <div className="grid grid-cols-2 gap-4">
                  <InputGroup label="Contact No. 1" name="contactNumber1" value={data.contactNumber1} onChange={handleChange} type="tel" required />
                  <InputGroup label="Contact No. 2" name="contactNumber2" value={data.contactNumber2} onChange={handleChange} type="tel" />
@@ -320,15 +566,11 @@ const EnrollmentForm = () => {
                 <InputGroup label="School Address" name="lastSchoolAddress" value={data.lastSchoolAddress} onChange={handleChange} required />
               </div>
 
-              {/* Only show extra details if Transferee or Returning */}
-              {(data.studentType === 'Transferee' || data.studentType === 'Returning') && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-blue-200">
-                    <InputGroup label="Last Grade Level Completed" name="lastGradeLevel" value={data.lastGradeLevel} onChange={handleChange} />
-                    <InputGroup label="Last School Year Completed" name="lastSchoolYear" value={data.lastSchoolYear} onChange={handleChange} />
-                    {/* School ID optional */}
-                    <InputGroup label="School ID" name="lastSchoolID" value={data.lastSchoolID || ''} onChange={handleChange} /> 
-                </div>
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-blue-200">
+                  <InputGroup label="Last Grade Level Completed" name="lastGradeLevel" value={data.lastGradeLevel} onChange={handleChange} />
+                  <InputGroup label="Last School Year Completed" name="lastSchoolYear" value={data.lastSchoolYear} onChange={handleChange} />
+                  <InputGroup label="School ID" name="lastSchoolID" value={data.lastSchoolID || ''} onChange={handleChange} /> 
+              </div>
             </section>
           )}
 
@@ -353,7 +595,7 @@ const EnrollmentForm = () => {
             </div>
           )}
           
-          <div className="bg-gray-50 rounded-xl p-8 border border-gray-200">
+          <div className="bg-gray-50 rounded-xl p-8 border border-gray-200 sticky bottom-0 z-20 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)]">
              <div className="mb-6">
                 <label className="text-xs font-bold text-[#800000] uppercase tracking-wider mb-3 block">Whose name should appear on the printed form as Parent/Guardian?</label>
                 <div className="flex flex-wrap gap-6">
@@ -362,10 +604,26 @@ const EnrollmentForm = () => {
                     <RadioButton name="signatory" value="Guardian" label="Guardian" checked={data.signatory === 'Guardian'} onChange={handleChange} />
                 </div>
              </div>
-             <button type="submit" disabled={loading} className={`w-full py-4 px-6 rounded-xl font-black text-lg text-white shadow-xl transform transition-all duration-200 ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#800000] hover:bg-[#600000] hover:-translate-y-1 hover:shadow-2xl active:scale-[0.99]'}`}>
-               {loading ? 'PROCESSING...' : 'SUBMIT OFFICIAL ENROLLMENT'}
+             
+             {/* DISABLED BUTTON LOGIC APPLIED HERE */}
+             <button 
+                type="submit" 
+                disabled={!isFormValid() || loading} 
+                className={`w-full py-4 px-6 rounded-xl font-black text-lg text-white shadow-xl transform transition-all duration-200 
+                  ${!isFormValid() || loading 
+                    ? 'bg-gray-300 cursor-not-allowed opacity-70' 
+                    : 'bg-[#800000] hover:bg-[#600000] hover:-translate-y-1 hover:shadow-2xl active:scale-[0.99]'
+                  }`}
+             >
+               {loading ? 'PROCESSING...' : (existingId ? 'REVIEW & UPDATE APPLICATION' : 'REVIEW & SUBMIT APPLICATION')}
              </button>
-             <p className="text-center text-gray-400 text-xs mt-6 px-4">By clicking submit, I certify that the information above is true and correct to the best of my knowledge and consent to the Data Privacy Act of 2012.</p>
+             
+             {!isFormValid() && (
+                 <p className="text-center text-red-500 font-bold text-xs mt-3 animate-pulse">
+                     ⚠️ Please fill in all required fields and correct any errors to proceed.
+                 </p>
+             )}
+             <p className="text-center text-gray-400 text-xs mt-4 px-4">By clicking submit, I certify that the information above is true and correct to the best of my knowledge and consent to the Data Privacy Act of 2012.</p>
           </div>
         </form>
       </div>

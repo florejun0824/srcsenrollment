@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   row: { 
     flexDirection: 'row', 
     borderBottom: '1px solid #000', 
-    height: 26, 
+    height: 24, 
     alignItems: 'stretch'
   },
   cell: { 
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2
   },
   value: { 
-    fontSize: 11, 
+    fontSize: 10, 
     fontFamily: 'Helvetica-Bold', 
     textTransform: 'uppercase',
     color: '#000',
@@ -166,7 +166,7 @@ const EnrollmentPDF = ({ data }) => {
   
   // LOGIC: Show Previous School Info ONLY for specific grade levels
   const targetGrades = ['Pre-Kindergarten 1', 'Pre-Kindergarten 2', 'Kinder', 'Grade 7', 'Grade 11 (SHS)'];
-  const showPrevSchool = targetGrades.includes(data.gradeLevel);
+  const showPrevSchool = targetGrades.includes(data.gradeLevel) || data.studentType === 'Transferee' || data.studentType === 'Returning';
 
   let parentSignatoryName = '';
   if (data.signatory === 'Mother') parentSignatoryName = data.motherName;
@@ -198,7 +198,7 @@ const EnrollmentPDF = ({ data }) => {
              </View>
           </View>
 
-          {/* Row 2: Student Type (FIXED) */}
+          {/* Row 2: Student Type */}
           <View style={{ flexDirection: 'row', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: 2 }}>
              <Text style={{ fontSize: 6, marginRight: 6, color: '#555', textTransform: 'uppercase' }}>Student Type:</Text>
              <Checkbox label="New" checked={data.studentType === 'New'} />
@@ -274,10 +274,9 @@ const EnrollmentPDF = ({ data }) => {
           </View>
 
           {/* 3. PREVIOUS SCHOOL INFORMATION (CONDITIONAL) */}
-          {/* Only shows if Grade Level is Pre-K 1/2, Kinder, Grade 7, or Grade 11 */}
           {showPrevSchool && (
             <>
-              <Text style={styles.sectionHeader}>Previous School Information for Grade 7, Grade 11, and Transferee</Text>
+              <Text style={styles.sectionHeader}>Previous School Information</Text>
               <View style={styles.row}>
                  <Cell label="Last School Attended" value={data.lastSchoolName} width="100%" noBorder />
               </View>
