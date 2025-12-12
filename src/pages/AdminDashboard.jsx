@@ -1,7 +1,9 @@
+// src/pages/AdminDashboard.jsx
 import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
+import { Link } from 'react-router-dom';
 
 // IMPORT COMPONENTS
 import { Icons } from '../utils/Icons';
@@ -11,9 +13,8 @@ import TransferPromoteModal from '../components/admin/TransferPromoteModal';
 import SectionManager from '../components/admin/SectionManager';
 import MasterList from '../components/admin/MasterList';
 import StudentRow from '../components/admin/StudentRow';
-import EnrollmentAnalytics from '../components/admin/EnrollmentAnalytics'; // NEW
+import EnrollmentAnalytics from '../components/admin/EnrollmentAnalytics'; 
 
-// ... (Keep existing SidebarItem, StatCard, LoginView code exactly as is) ...
 const SidebarItem = ({ icon, label, active, onClick }) => (
     <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${active ? 'bg-[#800000] text-white shadow-lg shadow-red-900/20' : 'text-gray-500 hover:bg-white hover:shadow-sm hover:text-gray-900'}`}>
         <div className={`transition-colors ${active ? 'text-white' : 'text-gray-400 group-hover:text-[#800000]'}`}>{icon}</div>
@@ -29,7 +30,6 @@ const StatCard = ({ title, value, icon, color }) => (
 );
 
 const LoginView = () => {
-    // ... (Your existing LoginView code) ...
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -41,7 +41,7 @@ const LoginView = () => {
             <div className="absolute inset-0 z-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#800000 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
             <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md relative z-10 border border-white/50 backdrop-blur-xl">
                 <div className="text-center mb-10">
-                    <div className="w-20 h-20 bg-gradient-to-br from-[#800000] to-red-900 rounded-2xl flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-red-900/20"><img src="/logo.png" className="w-12 h-12 object-contain" alt="Logo"/></div>
+                    <div className="w-20 h-20 bg-gradient-to-br from-[#800000] to-red-900 rounded-2xl flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-red-900/20"><img src="/1.png" className="w-12 h-12 object-contain" alt="Logo"/></div>
                     <h1 className="text-2xl font-black text-gray-900 tracking-tight">Admin Portal</h1>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">Admin Access Only</p>
                 </div>
@@ -51,6 +51,9 @@ const LoginView = () => {
                     {error && <div className="text-red-500 text-xs font-bold text-center bg-red-50 py-3 rounded-xl">{error}</div>}
                     <button type="submit" disabled={loading} className="w-full bg-[#800000] hover:bg-[#600000] text-white font-bold text-sm py-4 rounded-xl shadow-xl shadow-red-900/20 transition-all hover:-translate-y-1">{loading ? 'AUTHENTICATING...' : 'SECURE LOGIN'}</button>
                 </form>
+                <Link to="/enrollment-landing" className="block text-center mt-8 text-[10px] font-bold text-gray-400 hover:text-[#800000] uppercase tracking-widest transition-colors">
+                    ← Back to Main Menu
+                </Link>
             </div>
         </div>
     );
@@ -150,7 +153,7 @@ const DashboardLayout = ({ user }) => {
         });
     }, [students, search, filterStatus]);
 
-    // --- STATS CALCULATION (MODIFIED) ---
+    // --- STATS CALCULATION ---
     const stats = useMemo(() => {
         const enrolled = students.filter(s => s.status === 'Enrolled').length;
         const pending = students.filter(s => s.status === 'Pending').length;
@@ -158,13 +161,7 @@ const DashboardLayout = ({ user }) => {
         const cancelled = students.filter(s => s.status === 'Cancelled').length;
         const totalActive = enrolled + pending + rejected;
 
-        return {
-            total: totalActive, // Changed to totalActive
-            pending: pending,
-            enrolled: enrolled,
-            rejected: rejected, // Added Rejected count
-            cancelled: cancelled // Added Cancelled count
-        };
+        return { total: totalActive, pending, enrolled, rejected, cancelled };
     }, [students]);
 
     const schoolYearOptions = Array.from({ length: 10 }, (_, i) => { const y = new Date().getFullYear() - 1 + i; return `${y}-${y+1}`; });
@@ -187,7 +184,12 @@ const DashboardLayout = ({ user }) => {
                     <SidebarItem icon={Icons.sections} label="Sections" active={activeTab === 'sections'} onClick={() => { setActiveTab('sections'); setIsSidebarOpen(false); }} />
                     <SidebarItem icon={Icons.analytics} label="Analytics" active={activeTab === 'analytics'} onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); }} />
                 </div>
-                <div className="p-4 border-t border-gray-100"><button onClick={() => signOut(auth)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 hover:font-bold transition-all">{Icons.logout} <span className="text-sm font-medium">Sign Out</span></button></div>
+                
+                <div className="p-4 border-t border-gray-100 flex flex-col gap-2">
+                    <button onClick={() => signOut(auth)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 hover:font-bold transition-all">
+                        {Icons.logout} <span className="text-sm font-medium">Sign Out</span>
+                    </button>
+                </div>
             </div>
 
             {/* MAIN CONTENT */}
@@ -199,12 +201,35 @@ const DashboardLayout = ({ user }) => {
                             {schoolYearOptions.map(y => <option key={y} value={y}>SY {y}</option>)}
                         </select>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="relative w-full max-w-xs hidden md:block">
+
+                    {/* CENTERED SEARCH BAR (DESKTOP) */}
+                    <div className="flex-1 max-w-md mx-4 hidden md:flex justify-center">
+                        <div className="relative w-full">
                             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{Icons.search}</div>
-                            <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-2 text-sm font-bold text-gray-700 focus:bg-white focus:ring-2 focus:ring-[#800000]/10 transition-all outline-none"/>
+                            <input 
+                                type="text" 
+                                placeholder="Search students..." 
+                                value={search} 
+                                onChange={(e) => setSearch(e.target.value)} 
+                                className="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-2 text-sm font-bold text-gray-700 focus:bg-white focus:ring-2 focus:ring-[#800000]/10 transition-all outline-none"
+                            />
                         </div>
-                        <button className="relative w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">{Icons.bell}{stats.pending > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}</button>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        {/* UNIFIED "BACK TO MENU" BUTTON */}
+                        <Link 
+                            to="/enrollment-landing" 
+                            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 hover:text-[#800000] text-gray-500 px-3 py-2 md:px-4 md:py-2 rounded-full transition-all group"
+                            title="Back to Menu"
+                        >
+                            <div className="w-5 h-5 md:w-4 md:h-4 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                            </div>
+                            <span className="hidden md:block text-xs font-bold uppercase tracking-wider">Back to Menu</span>
+                        </Link>
                     </div>
                 </div>
 
@@ -214,7 +239,7 @@ const DashboardLayout = ({ user }) => {
                         <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-gray-700 outline-none focus:border-[#800000]"/>
                     </div>
 
-                    {/* DASHBOARD STATS (MODIFIED TO SHOW ENROLLED, PENDING, REJECTED, CANCELLED) */}
+                    {/* DASHBOARD STATS */}
                     {activeTab === 'dashboard' && (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-6 mb-8">
                             <StatCard title="Enrolled" value={stats.enrolled} icon={Icons.check} color="bg-green-500" />
@@ -232,7 +257,6 @@ const DashboardLayout = ({ user }) => {
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-[calc(100vh-280px)] min-h-[500px]">
                             <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                 <h2 className="text-lg font-black text-gray-900 tracking-tight">Queue</h2>
-                                {/* FILTER BUTTONS (MODIFIED TO INCLUDE CANCELLED) */}
                                 <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
                                     {['All', 'Pending', 'Enrolled', 'Rejected', 'Cancelled'].map(status => (
                                         <button key={status} onClick={() => setFilterStatus(status)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterStatus === status ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>{status}</button>
@@ -247,16 +271,16 @@ const DashboardLayout = ({ user }) => {
                 </div>
             </div>
 
-					{verifyModal && <VerificationModal 
-					    student={verifyModal} 
-					    sections={sections} 
-					    onClose={() => setVerifyModal(null)} 
-					    onApprove={handleApprove} 
-					    onReject={handleReject} 
-					    onTransfer={(s) => setTransferModal({type:'transfer', student:s})} 
-					    onPromote={(s) => setTransferModal({type:'promote', student:s})}
-					    onUpdateList={fetchStudents} // <--- ADD THIS
-					/>}
+            {verifyModal && <VerificationModal 
+                student={verifyModal} 
+                sections={sections} 
+                onClose={() => setVerifyModal(null)} 
+                onApprove={handleApprove} 
+                onReject={handleReject} 
+                onTransfer={(s) => setTransferModal({type:'transfer', student:s})} 
+                onPromote={(s) => setTransferModal({type:'promote', student:s})}
+                onUpdateList={fetchStudents} 
+            />}
             {transferModal && <TransferPromoteModal type={transferModal.type} student={transferModal.student} sections={sections} onClose={() => setTransferModal(null)} onConfirm={handleTransferPromote} />}
             <ConfirmationModal isOpen={confirmModal.isOpen} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal({...confirmModal, isOpen: false})} type={confirmModal.type} />
         </div>
