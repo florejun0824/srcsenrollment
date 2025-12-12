@@ -64,7 +64,7 @@ const DashboardLayout = ({ user }) => {
     const [search, setSearch] = useState('');
     const [activeTab, setActiveTab] = useState('dashboard');
     const [filterStatus, setFilterStatus] = useState('All');
-    const [selectedYear, setSelectedYear] = useState('2025-2026');
+    const [selectedYear, setSelectedYear] = useState('2026-2027');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     
     // --- MODAL STATE ---
@@ -156,7 +156,7 @@ const DashboardLayout = ({ user }) => {
         enrolled: students.filter(s => s.status === 'Enrolled').length,
     }), [students]);
 
-    const schoolYearOptions = Array.from({ length: 5 }, (_, i) => { const y = new Date().getFullYear() - 1 + i; return `${y}-${y+1}`; });
+    const schoolYearOptions = Array.from({ length: 10 }, (_, i) => { const y = new Date().getFullYear() - 1 + i; return `${y}-${y+1}`; });
 
     return (
         <div className="flex h-screen bg-[#F5F5F7] font-sans overflow-hidden">
