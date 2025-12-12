@@ -150,11 +150,22 @@ const DashboardLayout = ({ user }) => {
         });
     }, [students, search, filterStatus]);
 
-    const stats = useMemo(() => ({
-        total: students.length,
-        pending: students.filter(s => s.status === 'Pending').length,
-        enrolled: students.filter(s => s.status === 'Enrolled').length,
-    }), [students]);
+    // --- STATS CALCULATION (MODIFIED) ---
+    const stats = useMemo(() => {
+        const enrolled = students.filter(s => s.status === 'Enrolled').length;
+        const pending = students.filter(s => s.status === 'Pending').length;
+        const rejected = students.filter(s => s.status === 'Rejected').length;
+        const cancelled = students.filter(s => s.status === 'Cancelled').length;
+        const totalActive = enrolled + pending + rejected;
+
+        return {
+            total: totalActive, // Changed to totalActive
+            pending: pending,
+            enrolled: enrolled,
+            rejected: rejected, // Added Rejected count
+            cancelled: cancelled // Added Cancelled count
+        };
+    }, [students]);
 
     const schoolYearOptions = Array.from({ length: 10 }, (_, i) => { const y = new Date().getFullYear() - 1 + i; return `${y}-${y+1}`; });
 
@@ -203,11 +214,13 @@ const DashboardLayout = ({ user }) => {
                         <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-gray-700 outline-none focus:border-[#800000]"/>
                     </div>
 
+                    {/* DASHBOARD STATS (MODIFIED TO SHOW ENROLLED, PENDING, REJECTED, CANCELLED) */}
                     {activeTab === 'dashboard' && (
-                        <div className="grid grid-cols-3 gap-2 md:gap-6 mb-8">
-                            <StatCard title="Total" value={stats.total} icon={Icons.folder} color="bg-blue-500" />
-                            <StatCard title="Pending" value={stats.pending} icon={Icons.alert} color="bg-yellow-500" />
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-6 mb-8">
                             <StatCard title="Enrolled" value={stats.enrolled} icon={Icons.check} color="bg-green-500" />
+                            <StatCard title="Pending" value={stats.pending} icon={Icons.alert} color="bg-yellow-500" />
+                            <StatCard title="Rejected" value={stats.rejected} icon={Icons.x} color="bg-red-500" />
+                            <StatCard title="Cancelled" value={stats.cancelled} icon={Icons.x} color="bg-gray-500" />
                         </div>
                     )}
 
@@ -219,8 +232,9 @@ const DashboardLayout = ({ user }) => {
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-[calc(100vh-280px)] min-h-[500px]">
                             <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                 <h2 className="text-lg font-black text-gray-900 tracking-tight">Queue</h2>
+                                {/* FILTER BUTTONS (MODIFIED TO INCLUDE CANCELLED) */}
                                 <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
-                                    {['All', 'Pending', 'Enrolled', 'Rejected'].map(status => (
+                                    {['All', 'Pending', 'Enrolled', 'Rejected', 'Cancelled'].map(status => (
                                         <button key={status} onClick={() => setFilterStatus(status)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterStatus === status ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>{status}</button>
                                     ))}
                                 </div>

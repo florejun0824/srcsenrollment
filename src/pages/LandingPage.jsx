@@ -18,7 +18,7 @@ const LandingPage = () => {
              <img src="/1.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-3xl md:text-5xl font-black text-[#800000] tracking-tight mb-2">SAN RAMON</h1>
-          <p className="text-[#FFD700] text-sm md:text-base font-bold uppercase tracking-[0.3em] bg-[#800000] px-4 py-1 rounded-full inline-block">Catholic School, Inc.</p>
+          <p className="text-[#FFD700] text-sm md:text-base font-bold uppercase tracking-[0.3em] bg-[#800000] px-4 py-1 rounded-full inline-block">Enrollment System</p> {/* Updated Title */}
         </div>
 
         {/* Action Cards */}
@@ -46,7 +46,7 @@ const LandingPage = () => {
               🛡️
             </div>
             <div>
-              <h2 className="text-2xl font-black text-gray-800 group-hover:text-white mb-2">Admin Portal</h2>
+              <h2 className="2xl font-black text-gray-800 group-hover:text-white mb-2">Admin Portal</h2>
               <p className="text-gray-500 text-sm group-hover:text-white/80 font-medium">
                 Authorized personnel login to manage enrollments and view student records.
               </p>
@@ -54,6 +54,11 @@ const LandingPage = () => {
             <div className="mt-4 px-6 py-2 bg-gray-100 rounded-full text-xs font-bold text-gray-600 uppercase tracking-wider group-hover:bg-white group-hover:text-gray-900">
               Enter Dashboard →
             </div>
+          </Link>
+          
+          {/* Back to Portal Button */}
+          <Link to="/" className="md:col-span-2 text-center text-xs font-bold text-gray-500 hover:text-[#800000] mt-4 transition-colors">
+              ← Back to Main Portal
           </Link>
 
         </div>

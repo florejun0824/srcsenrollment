@@ -695,9 +695,36 @@ const EnrollmentForm = () => {
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 shadow-sm animate-bounce">
                         {Icons.check}
                     </div>
-                    <h2 className="text-2xl font-extrabold text-gray-800 mb-3">{existingId ? 'Updated Successfully!' : 'Enrolled Successfully!'}</h2>
-                    <p className="text-gray-500 mb-8 leading-relaxed text-sm">The student record has been securely saved to the database. You may now return to the main menu.</p>
-                    <Link to="/" className="w-full block bg-[#800000] text-white font-bold py-4 rounded-xl hover:bg-[#600000] transition-all shadow-lg shadow-red-200 hover:shadow-xl hover:-translate-y-1">
+                    {/* MODIFIED HEADER */}
+                    <h2 className="text-2xl font-extrabold text-gray-800 mb-3">{existingId ? 'Updated Successfully!' : 'Pre-Enrolled Successfully!'}</h2>
+                    
+                    {/* MODIFIED CONTENT */}
+                    <div className="text-left text-sm text-gray-700 leading-relaxed space-y-4 mb-8">
+                        <p>You have successfully <strong>pre-enrolled</strong> to the San Ramon Catholic School, Inc.</p> 
+                        <p className="font-bold text-[#800000] bg-red-50 p-2 rounded-lg border border-red-100">
+                           Please note that this is not the final phase yet. You will still have to visit the school in person to submit the following requirements during the enrollment day:
+                        </p>
+                        
+                        <ul className="list-disc pl-5 text-xs text-gray-600 space-y-1">
+                            <li>Scanned/Photocopy of Your Child(ren)'s Baptismal Certificate(s)</li>
+                            <li>Scanned/Photocopy of Your Child(ren)'s PSA Birth Certificate(s)</li>
+                            <li>Scanned/Photocopy of Your Child(ren)'s Report Card(s)</li>
+                            <li>Scanned/Photocopy of Your Child(ren)'s Diploma(s)</li>
+                            <li>Scanned/Photocopy of Your Child(ren)'s Certificate(s) of Good Moral Character</li>
+                            <li>Scanned/Photocopy of Your Child(ren)'s Certificate(s) of Honor if applicable</li>
+                        </ul>
+                        
+                        <p className="text-xs text-gray-500 italic">
+                            Kindly visit the <strong>Guidance Office</strong> to claim your Pre-enrollment Form before submitting your requirements at the registrar's office.
+                        </p>
+                        
+                        <p className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                            No payment is accepted during the Pre-Enrollment Process. Payments will be made during the Enrollment Day.
+                        </p>
+                    </div>
+
+                    {/* MODIFIED: Link to /enrollment-landing */}
+                    <Link to="/enrollment-landing" className="w-full block bg-[#800000] text-white font-bold py-4 rounded-xl hover:bg-[#600000] transition-all shadow-lg shadow-red-200 hover:shadow-xl hover:-translate-y-1">
                         Back to Home
                     </Link>
                 </div>
@@ -742,7 +769,8 @@ const EnrollmentForm = () => {
                             <p className="text-[#FFD700] font-bold uppercase tracking-widest text-xs md:text-sm mt-1 drop-shadow-sm">Catholic School, Inc.</p>
                         </div>
                     </div>
-                    <Link to="/" className="px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-all flex items-center gap-2 group">
+                    {/* MODIFIED: Link to /enrollment-landing */}
+                    <Link to="/enrollment-landing" className="px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white text-xs font-bold uppercase tracking-wider hover:bg-white/20 transition-all flex items-center gap-2 group">
                          <span className="opacity-70 group-hover:-translate-x-1 transition-transform">←</span> Back to Menu
                     </Link>
                 </div>
