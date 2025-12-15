@@ -4,7 +4,8 @@ import { db, auth } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, query, orderBy, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { Search, UserPlus, FileUp, Download, LogOut, Trash2, Edit, Users, Eye, EyeOff, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
+// FIX: Added ArrowLeft to imports
+import { Search, UserPlus, FileUp, Download, LogOut, Trash2, Edit, Users, Eye, EyeOff, CheckSquare, Square, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 
 import AddAccountModal from '../components/admin/AddAccountModal';
 import EditAccountModal from '../components/admin/EditAccountModal';
@@ -56,7 +57,6 @@ const AcademicAccountManager = () => {
             ));
         }
         // RESET TO PAGE 1 WHEN SEARCHING
-        // This ensures if a user searches, they see the results immediately
         setCurrentPage(1); 
     }, [searchQuery, accounts]);
 
@@ -83,9 +83,7 @@ const AcademicAccountManager = () => {
 
     // --- SELECTION HANDLERS ---
     const handleSelectAll = () => {
-        // Select only what is currently visible/filtered to prevent accidental massive deletions
         const currentIds = filteredAccounts.map(acc => acc.id);
-        
         if (selectedIds.length === currentIds.length) {
             setSelectedIds([]); 
         } else {
@@ -185,18 +183,31 @@ const AcademicAccountManager = () => {
             </div>
 
             <div className="relative z-10 max-w-7xl mx-auto">
-                {/* HEADER */}
+                {/* HEADER (UPDATED WITH BACK BUTTON) */}
                 <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-                    <div>
-                        <h1 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                            <span className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
-                                <Users className="w-6 h-6 text-white" />
-                            </span>
-                            Academic Accounts
-                        </h1>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-2 ml-1">
-                            {filteredAccounts.length} Accounts Found • Page {currentPage} of {totalPages || 1}
-                        </p>
+                    <div className="flex flex-col gap-4">
+                        {/* BACK BUTTON */}
+                        <div>
+                            <button 
+                                onClick={() => navigate('/student-portal', { state: { viewMode: 'teacher-select' } })}
+                                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white transition-all active:scale-95 w-fit"
+                            >
+                                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Back to Menu</span>
+                            </button>
+                        </div>
+
+                        <div>
+                            <h1 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+                                <span className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                                    <Users className="w-6 h-6 text-white" />
+                                </span>
+                                Academic Accounts
+                            </h1>
+                            <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-2 ml-1">
+                                {filteredAccounts.length} Accounts Found • Page {currentPage} of {totalPages || 1}
+                            </p>
+                        </div>
                     </div>
                     
                     <div className="flex items-center gap-3">

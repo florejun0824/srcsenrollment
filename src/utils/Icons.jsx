@@ -24,6 +24,7 @@ import {
     ArrowLeft, 
     Menu, 
     Filter,
+	Edit,
     FileText,
     CalendarDays
 } from 'lucide-react';
