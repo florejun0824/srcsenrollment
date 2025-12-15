@@ -1,8 +1,8 @@
 // src/pages/GradebookManager.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../firebase'; 
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore'; 
+import { collection, query, where, getDocs, writeBatch, doc, deleteDoc } from 'firebase/firestore'; 
 import { parseCumulativeGrades } from '../utils/aiGradeParser';
 import { Icons } from '../utils/Icons';
 import { useNavigate, Link } from 'react-router-dom';
@@ -35,7 +35,11 @@ const GradebookManager = () => {
     const [isEditing, setIsEditing] = useState(false);
     
     // --- PROCESSING STATE ---
-    const [uploading, setUploading] = useState(false); // Controls the overlay
+    const [uploading, setUploading] = useState(false);
+    
+    // --- DYNAMIC HEADERS STATE ---
+    // Stores the subjects found in the current view (from DB or Upload)
+    const [detectedHeaders, setDetectedHeaders] = useState([]);
 
     // --- INITIALIZATION ---
     useEffect(() => {
@@ -142,7 +146,23 @@ const GradebookManager = () => {
             const snap = await getDocs(q);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             
-            setRecords(data.sort((a,b) => (a.studentName || "").localeCompare(b.studentName || "")));
+            // Sort: Boys (MALE) first, then Girls (FEMALE), then Alphabetical
+            data.sort((a, b) => {
+                const genderA = a.gender || 'MALE'; // Default to Male if missing
+                const genderB = b.gender || 'MALE';
+                if (genderA !== genderB) return genderA === 'MALE' ? -1 : 1;
+                return (a.studentName || "").localeCompare(b.studentName || "");
+            });
+
+            setRecords(data);
+
+            // Extract headers from the loaded data so columns appear correctly
+            const subjects = new Set();
+            data.forEach(r => {
+                if(r.grades) Object.keys(r.grades).forEach(k => subjects.add(k));
+            });
+            if(subjects.size > 0) setDetectedHeaders(Array.from(subjects));
+
         } catch (error) {
             console.error("Fetch Error:", error);
         }
@@ -153,16 +173,24 @@ const GradebookManager = () => {
         const file = e.target.files[0];
         if (!file) return;
         
-        // START PROCESSING INTERFACE
         setUploading(true);
         
         try {
-            // This might take 3-6 seconds with the Micro-Worker strategy
             const { meta, records: extractedRecords } = await parseCumulativeGrades(file);
             
+            // 1. UPDATE HEADERS
+            if (meta.headers && meta.headers.length > 0) {
+                setDetectedHeaders(meta.headers);
+            } else {
+                // Fallback: extract from data if header scout failed
+                const subjects = new Set();
+                extractedRecords.forEach(r => Object.keys(r.grades).forEach(k => subjects.add(k)));
+                setDetectedHeaders(Array.from(subjects));
+            }
+            
+            // 2. AUTO-SWITCH FILTERS (Optional)
             let newFilters = { ...filters };
             let filterChanged = false;
-
             if (meta.gradeLevel) {
                 const match = gradeLevelOptions.find(opt => opt.toLowerCase() === meta.gradeLevel.toLowerCase());
                 if (match) {
@@ -170,34 +198,40 @@ const GradebookManager = () => {
                     filterChanged = true;
                 }
             }
-            
-            // Artificial delay (optional) to let the user see the "Success" state of animation if it's too fast
-            // await new Promise(r => setTimeout(r, 1000)); 
-
             if (filterChanged) {
                  if (confirm(`AI Detected Grade Level: ${meta.gradeLevel}. Switch view?`)) {
                     setFilters(newFilters);
                  }
             }
 
+            // 3. PREPARE DRAFTS
             const drafts = extractedRecords.map(r => ({
                 studentName: r.name,
+                gender: r.gender || 'MALE',
                 grades: r.grades,
                 generalAverage: r.average,
                 status: 'Unsaved' 
             }));
+
+            // Sort drafts
+            drafts.sort((a, b) => {
+                if (a.gender !== b.gender) return a.gender === 'MALE' ? -1 : 1;
+                return a.studentName.localeCompare(b.studentName);
+            });
+
             setRecords(drafts);
             setIsEditing(true);
         } catch (error) {
             alert("AI Processing Failed: " + error.message);
         }
         
-        // STOP PROCESSING INTERFACE
         setUploading(false);
-        e.target.value = ''; // Reset input
+        e.target.value = ''; 
     };
 
     const handleSaveChanges = async () => {
+        if (!confirm(`You are about to save ${records.length} records to the database.\n\nTarget: ${filters.gradeLevel} - ${filters.section}\nQuarter: ${filters.quarter}\n\nProceed?`)) return;
+
         setLoading(true);
         try {
             const batch = writeBatch(db);
@@ -218,27 +252,59 @@ const GradebookManager = () => {
 
                 if (studentMatch) {
                     matchedCount++;
+                    // Create ID: STUDENT_ID + SY + QUARTER (Prevent Duplicates)
                     const docId = `${studentMatch.id}_${filters.schoolYear}_${filters.quarter.replace(' ', '')}`;
                     const docRef = doc(db, "academic_records", docId);
+                    
                     batch.set(docRef, {
-                        ...rec,
                         studentId: studentMatch.id,
                         studentName: `${studentMatch.lastName}, ${studentMatch.firstName}`,
+                        gender: rec.gender || 'MALE', // SAVE GENDER
                         gradeLevel: filters.gradeLevel,
                         section: filters.section,
                         quarter: filters.quarter,
                         schoolYear: filters.schoolYear,
+                        grades: rec.grades,         // SAVE GRADES MAP
+                        generalAverage: rec.generalAverage,
                         updatedAt: new Date()
                     });
                 }
             });
+
             await batch.commit();
-            alert(`Saved ${matchedCount} records successfully!`);
+            alert(`Successfully Saved ${matchedCount} Student Records!`);
             setIsEditing(false);
-            fetchGrades();
+            fetchGrades(); // Refresh to show saved state
         } catch (error) {
             console.error(error);
             alert("Error saving records: " + error.message);
+        }
+        setLoading(false);
+    };
+
+    const handleDeleteRecord = async (index) => {
+        const record = records[index];
+        const isSaved = record.id; // Check if it has a Firestore ID
+
+        if (!confirm(`Are you sure you want to delete ${record.studentName}?`)) return;
+
+        setLoading(true);
+        try {
+            if (isSaved) {
+                // DELETE FROM DATABASE
+                await deleteDoc(doc(db, "academic_records", record.id));
+            }
+            
+            // REMOVE FROM UI
+            const updated = [...records];
+            updated.splice(index, 1);
+            setRecords(updated);
+            
+            if (isSaved) alert("Record deleted from database.");
+            
+        } catch (error) {
+            console.error(error);
+            alert("Failed to delete record.");
         }
         setLoading(false);
     };
@@ -249,40 +315,29 @@ const GradebookManager = () => {
         setRecords(updated);
     };
 
-    const allSubjects = Array.from(new Set(records.flatMap(r => Object.keys(r.grades || {}))));
-
     // --- COMPONENT: PROCESSING OVERLAY ---
     const ProcessingOverlay = () => (
         <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
             <div className="bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl flex flex-col items-center max-w-sm w-full relative overflow-hidden">
-                {/* Background Glow */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-[50px] rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 blur-[50px] rounded-full -ml-10 -mb-10 pointer-events-none"></div>
                 
-                {/* Animated Spinner */}
                 <div className="relative mb-8">
                     <div className="w-20 h-20 border-4 border-slate-800 rounded-full"></div>
                     <div className="absolute top-0 left-0 w-20 h-20 border-4 border-t-blue-500 border-r-purple-500 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center text-2xl animate-pulse">
-                        ✨
-                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl animate-pulse">✨</div>
                 </div>
 
                 <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Analyzing Gradesheet</h3>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-6 leading-relaxed">
-                    The AI is splitting the document, extracting student names, and calculating grades.
+                    AI is extracting subjects, separating genders, and calculating grades.
                 </p>
 
-                {/* Indeterminate Progress Bar */}
                 <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
                     <div className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-[shimmer_1s_infinite_linear]"></div>
                 </div>
             </div>
-            
-            {/* Disclaimer */}
-            <p className="mt-8 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-                Please do not close this window
-            </p>
+            <p className="mt-8 text-[9px] font-bold text-slate-600 uppercase tracking-widest">Please do not close this window</p>
         </div>
     );
 
@@ -316,7 +371,6 @@ const GradebookManager = () => {
     return (
         <div className="min-h-screen bg-[#020617] text-slate-300 font-sans relative">
             
-            {/* RENDER OVERLAY IF UPLOADING */}
             {uploading && <ProcessingOverlay />}
 
             <div className="bg-slate-900/50 border-b border-white/5 px-8 py-4 flex justify-between items-center backdrop-blur-md sticky top-0 z-50">
@@ -335,7 +389,6 @@ const GradebookManager = () => {
             </div>
 
             <div className="p-8 pb-32 max-w-[95%] mx-auto">
-                {/* FILTERS BAR */}
                 <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/10 mb-8 flex flex-wrap gap-4 items-end">
                     
                     <div className="flex-1 min-w-[150px]">
@@ -395,7 +448,6 @@ const GradebookManager = () => {
                     </div>
                 </div>
 
-                {/* GRADE GRID */}
                 <div className="bg-slate-900/80 backdrop-blur rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center">
                         <h3 className="font-bold text-white uppercase tracking-widest">
@@ -420,8 +472,15 @@ const GradebookManager = () => {
                             <thead>
                                 <tr className="bg-black/20 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                     <th className="p-4 sticky left-0 bg-[#0f172a] z-10 border-r border-white/10">Student Name</th>
-                                    {allSubjects.map(sub => <th key={sub} className="p-4 text-center border-l border-white/5">{sub}</th>)}
+                                    <th className="p-4 text-center border-l border-white/5">Gender</th>
+                                    
+                                    {/* DYNAMIC HEADERS: Prioritize detected headers, fallback to keys found */}
+                                    {detectedHeaders.map(sub => (
+                                        <th key={sub} className="p-4 text-center border-l border-white/5">{sub}</th>
+                                    ))}
+                                    
                                     <th className="p-4 text-center border-l border-white/5 text-emerald-500">Avg</th>
+                                    <th className="p-4 text-center border-l border-white/5 text-red-500">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 text-xs font-bold text-slate-300">
@@ -430,7 +489,11 @@ const GradebookManager = () => {
                                         <td className="p-4 sticky left-0 bg-[#0f172a] group-hover:bg-[#1e293b] border-r border-white/10 text-white uppercase">
                                             {rec.studentName}
                                         </td>
-                                        {allSubjects.map(sub => (
+                                        <td className="p-4 text-center text-[10px] text-slate-500 border-l border-white/5">
+                                            {rec.gender === 'MALE' ? 'BOY' : 'GIRL'}
+                                        </td>
+                                        
+                                        {detectedHeaders.map(sub => (
                                             <td key={sub} className="p-2 text-center border-l border-white/5">
                                                 {isEditing ? (
                                                     <input 
@@ -446,14 +509,24 @@ const GradebookManager = () => {
                                                 )}
                                             </td>
                                         ))}
+                                        
                                         <td className="p-4 text-center font-black text-emerald-400 border-l border-white/5">
                                             {rec.generalAverage}
+                                        </td>
+                                        <td className="p-4 text-center border-l border-white/5">
+                                            <button 
+                                                onClick={() => handleDeleteRecord(rowIndex)}
+                                                className="text-slate-600 hover:text-red-500 transition-colors"
+                                                title="Delete Record"
+                                            >
+                                                {Icons.trash || <span>🗑️</span>}
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
                                 {records.length === 0 && (
                                     <tr>
-                                        <td colSpan={10} className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest">
+                                        <td colSpan={15} className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest">
                                             No records found for this selection.
                                         </td>
                                     </tr>
