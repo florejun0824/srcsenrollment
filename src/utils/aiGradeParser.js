@@ -10,44 +10,61 @@ const isNative = Capacitor.isNativePlatform();
 const API_URL = `${isNative ? PROD_API_URL : ''}/api/gemini`;
 
 // --- CONFIGURATION ---
+// Terms to ignore so the AI doesn't think they are students
 const EXCLUDED_TERMS = [
     'PARENT', 'TEACHER', 'ADVISER', 'CHECKED BY', 'ATTESTED', 'PRINCIPAL', 
     'DATE', 'LPT', 'MA-ELM', 'PHD', 'EDD', 'GUIDANCE', 'COORDINATOR', 
     'SIGNATURE', 'APPROVED', 'SUBMITTED', 'NAME OF LEARNERS', 'DEPARTMENT',
-    'MALE', 'FEMALE', 'TOTAL' 
+    'MEAN', 'MPS', 'TOTAL', 'MALE', 'FEMALE' // specific gender headers handled manually
 ];
 
-// Limit chunk size to ensure <5s processing time
-const LINES_PER_CHUNK = 15; 
+// Chunk size: 10 lines is safe for 504 timeouts
+const LINES_PER_CHUNK = 10; 
 
-// --- 1. SPATIAL TEXT EXTRACTOR (Returns Clean Lines) ---
-const extractCleanLinesFromPDF = async (arrayBuffer) => {
+// --- 1. SPATIAL EXTRACTOR WITH PRE-TAGGING ---
+const extractPreTaggedLines = async (arrayBuffer) => {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const allLines = [];
+    let currentGender = 'MALE'; // Default to Boys (Top of list)
 
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         
-        // Group items by Y-coordinate (Row Detection)
+        // 1. Group by Y-Coordinate (Row Detection)
         const rows = {};
         textContent.items.forEach(item => {
-            const y = Math.round(item.transform[5] / 5) * 5; // 5px tolerance
+            // Round Y to nearest 4px to group slightly misaligned items
+            const y = Math.round(item.transform[5] / 4) * 4; 
             if (!rows[y]) rows[y] = [];
             rows[y].push({ x: item.transform[4], str: item.str.trim() });
         });
 
-        // Sort Rows (Top to Bottom)
+        // 2. Sort Rows (Top to Bottom)
         const sortedY = Object.keys(rows).sort((a, b) => b - a);
         
+        // 3. Process Rows Sequentially
         sortedY.forEach(y => {
-            // Sort Columns (Left to Right)
+            // Sort items Left-to-Right
             const rowItems = rows[y].sort((a, b) => a.x - b.x);
-            const lineText = rowItems.map(item => item.str).join(' | '); // Pipe separator
+            // Join with pipe '|' to preserve column structure
+            const lineText = rowItems.map(item => item.str).join(' | '); 
+            const upperLine = lineText.toUpperCase();
+
+            // --- DETERMINISTIC GENDER SWITCH ---
+            // If we hit the "GIRLS" header, switch mode.
+            if (upperLine.includes('GIRLS') && !upperLine.includes('ALILAIN')) { // Safety check against names containing 'GIRLS'
+                currentGender = 'FEMALE';
+            }
             
-            // Basic filtering to remove empty lines or headers
-            if (lineText.length > 5 && !EXCLUDED_TERMS.some(term => lineText.toUpperCase().includes(term))) {
-                allLines.push(lineText);
+            // Filter noise
+            const isNoise = EXCLUDED_TERMS.some(term => upperLine.includes(term));
+            
+            // Only add likely data rows
+            if (!isNoise && lineText.length > 5) {
+                // PRE-TAGGING: We inject the gender into the text itself!
+                // The AI doesn't guess; it just reads this tag.
+                allLines.push(`[GENDER:${currentGender}] ${lineText}`);
             }
         });
     }
@@ -55,10 +72,13 @@ const extractCleanLinesFromPDF = async (arrayBuffer) => {
     return allLines;
 };
 
-// --- 2. HEADER SCOUT (Scan first 20 lines) ---
+// --- 2. HEADER SCOUT ---
 const detectHeaders = async (firstLines) => {
     try {
-        const textSample = firstLines.join('\n');
+        // Remove the [GENDER:X] tags for header detection to reduce noise
+        const cleanLines = firstLines.map(l => l.replace(/\[GENDER:\w+\]\s*/, ''));
+        const textSample = cleanLines.join('\n');
+        
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -67,7 +87,10 @@ const detectHeaders = async (firstLines) => {
                 prompt: `
                 Analyze these grade sheet lines.
                 Identify the SUBJECT HEADERS (e.g. Filipino, English, Math, Science).
+                The headers are usually in the first few lines.
                 Ignore "Name", "Average", "Section".
+                
+                **CRITICAL:** Return the subjects in the EXACT order they appear from Left to Right.
                 
                 Return strictly a JSON array of strings: ["Math", "English", "Filipino"]
                 
@@ -83,7 +106,8 @@ const detectHeaders = async (firstLines) => {
         return JSON.parse(clean);
     } catch (e) {
         console.warn("Header detection failed:", e);
-        return []; // Will fallback to generic keys
+        // Fallback headers if detection fails
+        return ["Filipino", "English", "Math", "Science", "Aral Pan", "TLE", "MAPEH", "EsP"]; 
     }
 };
 
@@ -99,30 +123,33 @@ const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
                     body: JSON.stringify({
                         model: "gemma-3-27b-it", 
                         prompt: `
-                        You are a data extraction assistant processing a SMALL CHUNK of a grade sheet.
+                        You are a strict data parser.
                         
-                        CONTEXT:
-                        - Subject Headers: ${JSON.stringify(knownHeaders)}.
-                        - Format: "Name | Grade | Grade..." or "No | Name | Grade..."
+                        **INPUT FORMAT:**
+                        Each line looks like: "[GENDER:MALE] 1. LASTNAME, FIRSTNAME | Grade1 | Grade2 | Grade3..."
                         
-                        YOUR TASK:
-                        1. Extract student rows from this text chunk.
-                        2. Map grades to the headers provided.
-                        3. Clean up names (Remove leading numbers like "1. ", "25.").
-                        4. Infer gender: If you see "BOYS" in the text, mark subsequent as MALE. If "GIRLS", mark FEMALE. If neither is present, output "UNKNOWN" (we will fix later).
+                        **COLUMN MAPPING (STRICT):**
+                        The grades following the name correspond STRICTLY to these subjects in order:
+                        ${JSON.stringify(knownHeaders)}
                         
-                        OUTPUT FORMAT:
+                        **YOUR TASK:**
+                        1. Extract the Name (Remove leading numbers).
+                        2. Read the [GENDER:...] tag explicitly. Do NOT guess gender. Use the tag provided.
+                        3. Map the numbers to the subjects based on the order above.
+                        4. If a number is missing/blank, put null.
+                        
+                        **OUTPUT FORMAT:**
                         Return ONLY a valid JSON array. No markdown.
                         [
                             {
-                                "name": "LASTNAME, FIRSTNAME",
+                                "name": "ALILAIN, BRYAN D.",
                                 "gender": "MALE", 
-                                "grades": { "Math": "82", "English": "81"... },
+                                "grades": { "${knownHeaders[0]}": "82", "${knownHeaders[1]}": "78" ... },
                                 "average": "81.00"
                             }
                         ]
 
-                        CHUNK TEXT:
+                        **CHUNK TEXT:**
                         ${chunkText}
                         `
                     })
@@ -131,11 +158,18 @@ const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
                 if (!response.ok) throw new Error(`Server status: ${response.status}`);
                 
                 const data = await response.json();
-                const cleanText = data.text.replace(/```json|```/g, '').trim();
+                // Sanitize response
+                let cleanText = data.text.replace(/```json|```/g, '').trim();
+                // Sometimes AI adds comments, ensure we only get the array
+                const arrayStart = cleanText.indexOf('[');
+                const arrayEnd = cleanText.lastIndexOf(']');
+                if (arrayStart !== -1 && arrayEnd !== -1) {
+                    cleanText = cleanText.substring(arrayStart, arrayEnd + 1);
+                }
+                
                 return JSON.parse(cleanText);
 
             } catch (err) {
-                console.warn(`Chunk ${chunkIndex} attempt ${attempt + 1} failed: ${err.message}`);
                 if (attempt === 2) throw err; // Final fail
                 await new Promise(r => setTimeout(r, 1500)); // Wait before retry
             }
@@ -148,15 +182,15 @@ const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
 
 // --- MAIN ORCHESTRATOR ---
 export const parseCumulativeGrades = async (file) => {
-    console.log("📄 Reading PDF Lines...");
+    console.log("📄 Reading PDF & Pre-Tagging...");
     
-    // 1. Extract All Lines (Client Side)
+    // 1. Extract & Tag Lines (Deterministic Logic)
     const arrayBuffer = await file.arrayBuffer();
-    const allLines = await extractCleanLinesFromPDF(arrayBuffer);
+    const allLines = await extractPreTaggedLines(arrayBuffer);
     console.log(`✅ Extracted ${allLines.length} valid lines.`);
 
-    // 2. Detect Headers (First 20 lines usually contain headers)
-    const headers = await detectHeaders(allLines.slice(0, 20));
+    // 2. Detect Headers (First 30 lines)
+    const headers = await detectHeaders(allLines.slice(0, 30));
     console.log("Headers found:", headers);
 
     // 3. Create Micro-Chunks
@@ -171,8 +205,8 @@ export const parseCumulativeGrades = async (file) => {
     let allRecords = [];
     
     for (let i = 0; i < chunks.length; i++) {
-        // Skip chunks that are clearly just headers or noise
-        if (chunks[i].length < 50) continue;
+        // Skip obvious junk chunks
+        if (chunks[i].length < 20) continue;
 
         console.log(`Processing Chunk ${i + 1}/${chunks.length}...`);
         
@@ -182,31 +216,26 @@ export const parseCumulativeGrades = async (file) => {
             allRecords = [...allRecords, ...chunkRecords];
         }
         
-        // Safety Pause to prevent Rate Limiting
-        await new Promise(r => setTimeout(r, 500));
+        // Safety Pause
+        await new Promise(r => setTimeout(r, 300));
     }
 
-    // 5. Post-Processing: Fix Genders
-    // (Since chunking loses the "BOYS/GIRLS" context header if it was in a previous chunk)
-    // We assume the list is sorted: usually Boys first, then Girls.
-    // If 'gender' is unknown, we can try to guess or default to 'MALE' for top half.
-    // However, usually the name line itself doesn't contain gender, so we rely on the parser finding markers.
-    // A simple fix for "Unknown" is difficult without the full list context, 
-    // but the GradebookManager UI allows manual sorting/fixing.
-    
-    // Deduplicate
+    // 5. Post-Processing: Deduplicate
     const uniqueMap = new Map();
     allRecords.forEach(r => {
-        if(r.name && r.name.length > 3 && !r.name.includes("NAME OF LEARNERS")) {
+        if(r.name && r.name.length > 3) {
             // Clean name key
             const key = r.name.toUpperCase().replace(/[^A-Z]/g, '');
-            uniqueMap.set(key, r);
+            // Only add if not exists (prefer first occurrence)
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, r);
+            }
         }
     });
 
     return {
         meta: { 
-            headers: headers.length > 0 ? headers : ["Math", "English", "Science"], 
+            headers: headers,
             gradeLevel: "Detected" 
         },
         records: Array.from(uniqueMap.values())
