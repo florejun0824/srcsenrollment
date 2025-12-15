@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker?url';
 
+// Configure PDF Worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const PROD_API_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -11,7 +12,6 @@ const API_URL = `${isNative ? PROD_API_URL : ''}/api/gemini`;
 
 /**
  * PHASE 1: HEADER SCOUT
- * Looks at the top of the document to find the exact subject columns.
  */
 const extractHeaders = async (base64Data) => {
     try {
@@ -22,12 +22,8 @@ const extractHeaders = async (base64Data) => {
                 model: "gemma-3-27b-it",
                 prompt: [
                     `Analyze the HEADER ROW of this grade sheet.
-                     
-                     TASK:
-                     1. Identify the Subject Columns (e.g., Filipino, English, Math, Science, etc.).
-                     2. Ignore metadata like "Name" or "Average". Just get the subjects.
-                     3. Return a JSON array of strings: ["Filipino", "English", "Math", "Science"]
-                     4. Ensure the order matches the visual columns left-to-right.`,
+                     TASK: Identify the Subject Columns (e.g., Filipino, English, Math).
+                     Return JSON array of strings: ["Filipino", "English", "Math"]`,
                     {
                         inlineData: {
                             data: base64Data,
@@ -43,36 +39,33 @@ const extractHeaders = async (base64Data) => {
         const text = data.text.replace(/```json|```/g, '').trim();
         return JSON.parse(text);
     } catch (error) {
-        console.warn("Header detection failed, defaulting to auto-detect:", error);
-        return null; // Fallback to worker auto-detect
+        console.warn("Header detection failed:", error);
+        return null; 
     }
 };
 
 /**
- * PHASE 2: CONTEXT-AWARE WORKER
+ * PHASE 2: WORKER
  */
 const sendToWorker = async (base64Data, label, knownHeaders) => {
     try {
         const headerContext = knownHeaders 
-            ? `IMPORTANT: The columns in this image correspond EXACTLY to these subjects: ${JSON.stringify(knownHeaders)}. Map the numbers to these keys.`
-            : `Infer the subject headers from the image context.`;
+            ? `IMPORTANT: The columns correspond to: ${JSON.stringify(knownHeaders)}.`
+            : `Infer the subject headers.`;
 
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: "gemini-1.5-flash", 
+                model: "gemma-3-27b-it", 
                 prompt: [
                     `Analyze this PARTIAL SLICE (${label}) of a grade sheet.
-                     
                      ${headerContext}
-
                      TASK:
                      1. Extract student rows.
-                     2. If you see a CATEGORY HEADER like "BOYS", "GIRLS", "MALE", or "FEMALE" on its own line, return a specific object: {"type": "marker", "value": "BOYS"}.
-                     3. For students, return: {"type": "student", "name": "LAST, FIRST", "grades": {"Subject": 90}, "average": 90}.
-                     4. STRICTNESS: Do not invent names. If a row is blurry or empty, IGNORE IT. Do not hallucinate data.
-                     5. Return ONLY a JSON array of these objects.`,
+                     2. Return {"type": "marker", "value": "BOYS"} for category headers.
+                     3. Return {"type": "student", "name": "LAST, FIRST", "grades": {"Subject": 90}, "average": 90} for students.
+                     4. Return ONLY JSON array.`,
                     {
                         inlineData: {
                             data: base64Data,
@@ -83,25 +76,26 @@ const sendToWorker = async (base64Data, label, knownHeaders) => {
             })
         });
 
-        if (!response.ok) throw new Error(`${label} failed`);
+        if (!response.ok) throw new Error(`${label} failed: ${response.status} ${response.statusText}`);
         const data = await response.json();
         const text = data.text.replace(/```json|```/g, '').trim();
         return JSON.parse(text);
 
     } catch (error) {
-        console.warn(`${label} warning:`, error);
+        console.warn(`${label} error:`, error);
         return []; 
     }
 };
 
-// --- PDF & IMAGE HELPERS (Same as before) ---
+// --- HELPERS ---
 const convertPdfToBitmaps = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const bitmaps = [];
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 });
+        // Reduce scale slightly to 1.5 to save bandwidth/memory while keeping text clear
+        const viewport = page.getViewport({ scale: 1.5 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
@@ -114,7 +108,7 @@ const convertPdfToBitmaps = async (file) => {
 
 const sliceBitmap = (bitmap) => {
     const { width, height } = bitmap;
-    const SLICE_HEIGHT = 1000; // Smaller slices for better focus
+    const SLICE_HEIGHT = 1000; 
     const OVERLAP = 200; 
     const slices = [];
     let currentY = 0;
@@ -126,7 +120,8 @@ const sliceBitmap = (bitmap) => {
         canvas.height = h;
         ctx.clearRect(0, 0, width, h);
         ctx.drawImage(bitmap, 0, currentY, width, h, 0, 0, width, h);
-        slices.push(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+        // Use 0.7 quality to reduce payload size
+        slices.push(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
         currentY += (h - OVERLAP);
         if (currentY >= height - OVERLAP) break;
     }
@@ -146,13 +141,13 @@ export const parseCumulativeGrades = async (file) => {
         bitmaps = [await createImageBitmap(file)];
     }
 
-    // 2. Header Scout (Use the top of the first page)
+    // 2. Header Scout
     console.log("🕵️ Scouting headers...");
     const headerSliceCanvas = document.createElement('canvas');
     headerSliceCanvas.width = bitmaps[0].width;
     headerSliceCanvas.height = Math.min(1500, bitmaps[0].height);
     headerSliceCanvas.getContext('2d').drawImage(bitmaps[0], 0, 0);
-    const headerSliceBase64 = headerSliceCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    const headerSliceBase64 = headerSliceCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
     
     const detectedHeaders = await extractHeaders(headerSliceBase64);
     console.log("✅ Detected Headers:", detectedHeaders);
@@ -169,40 +164,43 @@ export const parseCumulativeGrades = async (file) => {
         });
     });
 
-    // 4. Run Workers (Passing the detected headers!)
-    console.log(`⚡ Dispatching ${allSlices.length} workers with context...`);
-    // We execute sequentially or in small batches to maintain order logic for Gender
-    // But Promise.all is fine because we map results back to index
-    const results = await Promise.all(
-        allSlices.map(item => sendToWorker(item.data, item.label, detectedHeaders))
-    );
+    console.log(`⚡ Processing ${allSlices.length} slices SEQUENTIALLY...`);
+
+    // 4. SEQUENTIAL EXECUTION (Fixes 500/Rate Limit)
+    const results = [];
+    for (const item of allSlices) {
+        console.log(`Processing ${item.label}...`);
+        // Wait for one to finish before starting the next
+        const result = await sendToWorker(item.data, item.label, detectedHeaders);
+        results.push(result);
+        // Optional: Small delay to be gentle on the API
+        await new Promise(r => setTimeout(r, 500));
+    }
 
     // 5. Intelligent Merge & Gender Assignment
     const finalRecords = [];
-    let currentGender = 'MALE'; // Default to Boys usually first
+    let currentGender = 'MALE'; 
     const seenNames = new Set();
 
-    // Flatten results IN ORDER (Crucial for Boys/Girls detection)
     results.forEach(sliceResult => {
+        if (!Array.isArray(sliceResult)) return;
+        
         sliceResult.forEach(item => {
             if (item.type === 'marker') {
-                // Switch context if we see "GIRLS"
                 const val = item.value.toUpperCase();
                 if (val.includes('GIRL') || val.includes('FEMALE')) currentGender = 'FEMALE';
                 if (val.includes('BOY') || val.includes('MALE')) currentGender = 'MALE';
-            } else if (item.type === 'student' || !item.type) { // Handle legacy format
+            } else if (item.type === 'student' || (!item.type && item.name)) { 
                 const name = item.name;
-                // Basic cleanup
                 if (!name || name.length < 3 || name.toUpperCase().includes("NAME OF LEARNERS")) return;
                 
-                // Deduplicate (Exact Name Match)
                 const nameKey = name.toUpperCase().replace(/[^A-Z]/g, '');
                 if (seenNames.has(nameKey)) return;
                 seenNames.add(nameKey);
 
                 finalRecords.push({
                     name: item.name.toUpperCase(),
-                    gender: currentGender, // Assign the tracked gender
+                    gender: currentGender,
                     grades: item.grades || {},
                     average: item.average
                 });
