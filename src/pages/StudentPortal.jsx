@@ -4,9 +4,9 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Icons } from '../utils/Icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Filter, Calendar, BookOpen, GraduationCap, Clock, Pointer, ArrowLeft, LogOut, Book } from 'lucide-react';
+import { ChevronDown, Filter, Calendar, BookOpen, GraduationCap, Clock, Pointer, ArrowLeft, FileText, CheckCircle, XCircle } from 'lucide-react';
 
-// --- CUSTOM DROPDOWN COMPONENT ---
+// --- CUSTOM DROPDOWN COMPONENT (Updated for Compact Mobile) ---
 const CustomDropdown = ({ label, options, value, onChange, icon: Icon, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -23,30 +23,33 @@ const CustomDropdown = ({ label, options, value, onChange, icon: Icon, placehold
 
     return (
         <div className="relative w-full md:w-auto" ref={dropdownRef}>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+            {/* Label hidden on very small screens to save vertical space, or keep tiny */}
+            <label className="block text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1 truncate">
                 {label}
             </label>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full md:min-w-[180px] flex items-center justify-between gap-3 bg-slate-900/80 border ${isOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-white/10 hover:border-white/20'} rounded-xl px-4 py-3.5 text-sm font-bold text-slate-200 transition-all active:scale-[0.98] shadow-sm`}
+                // UPDATED: Reduced padding (px-2 py-2) and text size (text-[10px]) for mobile
+                className={`w-full md:min-w-[180px] flex items-center justify-between gap-1 md:gap-3 bg-slate-900/80 border ${isOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-white/10 hover:border-white/20'} rounded-xl px-2 py-2 md:px-4 md:py-3.5 text-[10px] md:text-sm font-bold text-slate-200 transition-all active:scale-[0.98] shadow-sm`}
             >
-                <div className="flex items-center gap-2 truncate">
-                    {Icon && <Icon className={`w-4 h-4 shrink-0 ${value ? 'text-indigo-400' : 'text-slate-500'}`} />}
+                <div className="flex items-center gap-1.5 truncate">
+                    {Icon && <Icon className={`w-3 h-3 md:w-4 md:h-4 shrink-0 ${value ? 'text-indigo-400' : 'text-slate-500'}`} />}
                     <span className={`truncate ${!value ? 'text-slate-500 font-medium' : ''}`}>
-                        {value || placeholder}
+                        {value || <span className="md:hidden">Select</span>} {/* Shorten placeholder on mobile */}
+                        <span className="hidden md:inline">{!value && placeholder}</span>
                     </span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-2 w-full bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in-up">
+                <div className="absolute top-full left-0 mt-2 w-[150%] md:w-full bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in-up">
                     <div className="max-h-[250px] overflow-y-auto custom-scrollbar p-1">
                         <button
                             onClick={() => { onChange(''); setIsOpen(false); }}
                             className="w-full text-left px-3 py-3 rounded-lg text-xs font-bold uppercase tracking-wide text-slate-500 hover:bg-white/5 hover:text-white transition-colors"
                         >
-                            - Clear Selection -
+                            - Clear -
                         </button>
                         {options.map((opt) => (
                             <button
@@ -82,7 +85,7 @@ const StudentPortal = () => {
     const [loading, setLoading] = useState(false);
 
     // --- FILTER STATE ---
-    const [selectedGradeLevel, setSelectedGradeLevel] = useState(''); // NEW STATE
+    const [selectedGradeLevel, setSelectedGradeLevel] = useState(''); 
     const [selectedYear, setSelectedYear] = useState('');
     const [selectedQuarter, setSelectedQuarter] = useState('');
     
@@ -100,14 +103,13 @@ const StudentPortal = () => {
 
     // --- STRICT FILTER LOGIC ---
     useEffect(() => {
-        // Require ALL 3 filters to be selected before showing data
         if (!selectedGradeLevel || !selectedYear || !selectedQuarter) {
             setFilteredGrades([]); 
             return;
         }
 
         const result = grades.filter(r => 
-            r.gradeLevel === selectedGradeLevel && // NEW CHECK
+            r.gradeLevel === selectedGradeLevel && 
             r.schoolYear === selectedYear && 
             r.quarter === selectedQuarter
         );
@@ -347,15 +349,15 @@ const StudentPortal = () => {
                             </div>
                         </div>
 
-                        {/* FILTER BAR (Updated with Grade Level) */}
-                        <div className="mb-6 flex flex-col md:flex-row items-end gap-3 px-1">
+                        {/* FILTER BAR (UPDATED: Grid on mobile for 1 row) */}
+                        <div className="mb-6 grid grid-cols-3 md:flex md:flex-row items-end gap-2 px-1">
                             <CustomDropdown 
                                 label="Grade Level"
                                 options={gradeLevelOptions}
                                 value={selectedGradeLevel}
                                 onChange={setSelectedGradeLevel}
                                 icon={GraduationCap}
-                                placeholder="Select Grade"
+                                placeholder="Grade"
                             />
                             <CustomDropdown 
                                 label="School Year"
@@ -363,7 +365,7 @@ const StudentPortal = () => {
                                 value={selectedYear}
                                 onChange={setSelectedYear}
                                 icon={Calendar}
-                                placeholder="Select School Year"
+                                placeholder="Year"
                             />
                             <CustomDropdown 
                                 label="Academic Quarter"
@@ -371,15 +373,16 @@ const StudentPortal = () => {
                                 value={selectedQuarter}
                                 onChange={setSelectedQuarter}
                                 icon={Clock}
-                                placeholder="Select Quarter"
+                                placeholder="Qtr"
                             />
                             
                             {(selectedGradeLevel || selectedYear || selectedQuarter) && (
                                 <button 
                                     onClick={() => { setSelectedGradeLevel(''); setSelectedYear(''); setSelectedQuarter(''); }}
-                                    className="w-full md:w-auto h-[46px] px-6 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                    // UPDATED: Spans all 3 cols on mobile, smaller height and text
+                                    className="col-span-3 md:col-span-1 w-full md:w-auto h-8 md:h-[46px] px-6 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                                 >
-                                    <Filter className="w-3 h-3" /> Clear
+                                    <Filter className="w-3 h-3" /> Clear Filters
                                 </button>
                             )}
                         </div>
@@ -404,50 +407,99 @@ const StudentPortal = () => {
                                 </p>
                             </div>
                         ) : (
-                            <div className="grid gap-6 md:gap-8 animate-fade-in">
+                            // --- DOCUMENT VIEW ---
+                            <div className="animate-fade-in">
                                 {filteredGrades.map((record, idx) => (
-                                    <div key={idx} className="bg-gradient-to-br from-slate-900/90 to-slate-950/90 backdrop-blur-xl border border-white/10 rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl relative group">
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 blur-[80px] rounded-full -mr-20 -mt-20 pointer-events-none"></div>
-                                        <div className="bg-white/[0.02] p-6 md:p-10 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-white/5 gap-6 relative z-10">
-                                            <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto">
-                                                <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-white border border-white/10 shadow-lg shrink-0">
-                                                    <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-indigo-400" />
+                                    <div key={idx} className="bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl mb-8 relative">
+                                        
+                                        {/* DOCUMENT HEADER */}
+                                        <div className="bg-gradient-to-r from-indigo-900/40 to-slate-900/40 border-b border-white/10 p-6 md:p-8 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                                                    <FileText className="w-6 h-6" />
                                                 </div>
-                                                <div className="flex-1">
-                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                        <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">{record.quarter}</h3>
-                                                        <span className="bg-indigo-500 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">SY {record.schoolYear}</span>
-                                                    </div>
-                                                    <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                        <GraduationCap className="w-3 h-3 md:w-4 md:h-4" /> 
-                                                        {record.gradeLevel} - {record.section}
+                                                <div>
+                                                    <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">Report Card</h3>
+                                                    <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                                        Official Grade Record
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="w-full md:w-auto bg-black/30 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/5 flex flex-row md:flex-col justify-between md:justify-center items-center md:min-w-[140px]">
-                                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest md:mb-1">Gen Avg</span>
-                                                <div className="flex items-baseline gap-2 md:gap-1">
-                                                    <span className={`text-3xl md:text-4xl font-black leading-none ${record.generalAverage >= 75 ? 'text-emerald-400' : 'text-red-400'}`}>{record.generalAverage || '—'}</span>
-                                                    {record.generalAverage && (
-                                                        <span className={`text-[10px] font-bold uppercase ${record.generalAverage >= 75 ? 'text-emerald-500' : 'text-red-500'}`}>{record.generalAverage >= 75 ? 'Passed' : 'Failed'}</span>
-                                                    )}
+                                            <div className="flex flex-col items-center md:items-end">
+                                                <div className="text-sm font-bold text-white uppercase">{record.quarter}</div>
+                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                                    SY {record.schoolYear} • {record.gradeLevel} - {record.section}
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-6 md:p-10 relative z-10">
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-                                                {record.grades && Object.entries(record.grades).map(([subj, grade]) => (
-                                                    <div key={subj} className="bg-white/[0.03] hover:bg-white/[0.06] p-4 md:p-5 rounded-2xl border border-white/5 flex flex-col justify-between transition-all group/item hover:-translate-y-1 hover:shadow-lg min-h-[100px] md:min-h-[110px]">
-                                                        <div className="flex items-start gap-2 mb-3">
-                                                            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-400 border border-indigo-500/20 shrink-0">{subj.charAt(0)}</div>
-                                                            <span className="text-xs font-bold text-slate-300 uppercase tracking-wide leading-tight line-clamp-2" title={subj}>{subj}</span>
-                                                        </div>
-                                                        <div className="flex items-end justify-between border-t border-white/5 pt-3">
-                                                            <span className={`text-xl md:text-2xl font-black ${grade >= 75 ? 'text-white' : 'text-red-400'}`}>{grade}</span>
-                                                            <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${grade >= 75 ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
-                                                        </div>
+
+                                        {/* DOCUMENT TABLE BODY */}
+                                        <div className="p-0 md:p-8">
+                                            <div className="overflow-hidden md:rounded-xl border-t md:border border-white/10">
+                                                
+                                                {/* Table Header (Desktop) */}
+                                                <div className="hidden md:flex bg-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest p-4 border-b border-white/5">
+                                                    <div className="flex-1">Learning Area</div>
+                                                    <div className="w-32 text-center">Final Grade</div>
+                                                    <div className="w-32 text-center">Remarks</div>
+                                                </div>
+
+                                                {/* Rows */}
+                                                <div className="divide-y divide-white/5">
+                                                    {record.grades && Object.entries(record.grades).map(([subj, grade]) => {
+                                                        const isPassing = parseFloat(grade) >= 75;
+                                                        return (
+                                                            <div key={subj} className="group flex flex-row md:items-center p-4 md:px-4 md:py-3 odd:bg-transparent even:bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                                                                
+                                                                {/* Subject Name */}
+                                                                <div className="flex-1 flex items-center gap-3">
+                                                                    <div className={`md:hidden w-1 h-8 rounded-full ${isPassing ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                                                                    <span className="text-xs md:text-sm font-bold text-slate-200 uppercase tracking-wide leading-tight py-1">
+                                                                        {subj}
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Grade & Remarks Wrapper */}
+                                                                <div className="flex flex-col md:flex-row items-center md:items-center justify-center gap-2 md:gap-0 min-w-[90px] md:min-w-0">
+                                                                    
+                                                                    {/* Grade (UPDATED: Reduced from text-3xl to text-2xl) */}
+                                                                    <div className="w-full md:w-32 text-center md:text-center">
+                                                                        <span className={`text-2xl md:text-base font-black font-mono ${isPassing ? 'text-white' : 'text-red-400'}`}>
+                                                                            {grade}
+                                                                        </span>
+                                                                        <span className="md:hidden text-[9px] text-slate-500 font-bold uppercase block -mt-1">Final</span>
+                                                                    </div>
+
+                                                                    {/* Remarks */}
+                                                                    <div className="w-full md:w-32 flex justify-center md:justify-center">
+                                                                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isPassing ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                                                            {isPassing ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                                                            {isPassing ? 'Passed' : 'Failed'}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* DOCUMENT FOOTER (Summary) */}
+                                        <div className="bg-black/20 border-t border-white/10 p-6 md:p-8 flex justify-between items-center">
+                                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                Based on DepEd Grading System
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">General Average</div>
+                                                    <div className={`text-2xl md:text-3xl font-black leading-none ${record.generalAverage >= 75 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                        {record.generalAverage || '—'}
                                                     </div>
-                                                ))}
+                                                </div>
+                                                <div className={`hidden md:flex w-12 h-12 rounded-full items-center justify-center border-2 ${record.generalAverage >= 75 ? 'border-emerald-500 text-emerald-500' : 'border-red-500 text-red-500'}`}>
+                                                    {record.generalAverage >= 75 ? <CheckCircle className="w-6 h-6" /> : <XCircle className="w-6 h-6" />}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
