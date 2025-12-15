@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase'; 
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore'; // Removed unused imports
+import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore'; 
 import { parseCumulativeGrades } from '../utils/aiGradeParser';
 import { Icons } from '../utils/Icons';
 import { useNavigate, Link } from 'react-router-dom';
@@ -33,7 +33,9 @@ const GradebookManager = () => {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [uploading, setUploading] = useState(false);
+    
+    // --- PROCESSING STATE ---
+    const [uploading, setUploading] = useState(false); // Controls the overlay
 
     // --- INITIALIZATION ---
     useEffect(() => {
@@ -51,10 +53,9 @@ const GradebookManager = () => {
                 const q = query(collection(db, "sections"));
                 const snap = await getDocs(q);
                 
-                // --- FIX: Read 'name' instead of 'sectionName' ---
                 const sectionsData = snap.docs.map(d => ({ 
                     id: d.id, 
-                    sectionName: d.data().name || "Unnamed Section", // <--- CHANGED HERE
+                    sectionName: d.data().name || "Unnamed Section", 
                     gradeLevel: d.data().gradeLevel || "No Grade"
                 }));
                 
@@ -144,7 +145,6 @@ const GradebookManager = () => {
             setRecords(data.sort((a,b) => (a.studentName || "").localeCompare(b.studentName || "")));
         } catch (error) {
             console.error("Fetch Error:", error);
-            // Don't alert here to avoid spamming the user on load
         }
         setLoading(false);
     };
@@ -152,8 +152,12 @@ const GradebookManager = () => {
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        
+        // START PROCESSING INTERFACE
         setUploading(true);
+        
         try {
+            // This might take 3-6 seconds with the Micro-Worker strategy
             const { meta, records: extractedRecords } = await parseCumulativeGrades(file);
             
             let newFilters = { ...filters };
@@ -167,6 +171,9 @@ const GradebookManager = () => {
                 }
             }
             
+            // Artificial delay (optional) to let the user see the "Success" state of animation if it's too fast
+            // await new Promise(r => setTimeout(r, 1000)); 
+
             if (filterChanged) {
                  if (confirm(`AI Detected Grade Level: ${meta.gradeLevel}. Switch view?`)) {
                     setFilters(newFilters);
@@ -182,9 +189,12 @@ const GradebookManager = () => {
             setRecords(drafts);
             setIsEditing(true);
         } catch (error) {
-            alert(error.message);
+            alert("AI Processing Failed: " + error.message);
         }
+        
+        // STOP PROCESSING INTERFACE
         setUploading(false);
+        e.target.value = ''; // Reset input
     };
 
     const handleSaveChanges = async () => {
@@ -241,6 +251,41 @@ const GradebookManager = () => {
 
     const allSubjects = Array.from(new Set(records.flatMap(r => Object.keys(r.grades || {}))));
 
+    // --- COMPONENT: PROCESSING OVERLAY ---
+    const ProcessingOverlay = () => (
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
+            <div className="bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl flex flex-col items-center max-w-sm w-full relative overflow-hidden">
+                {/* Background Glow */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-[50px] rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 blur-[50px] rounded-full -ml-10 -mb-10 pointer-events-none"></div>
+                
+                {/* Animated Spinner */}
+                <div className="relative mb-8">
+                    <div className="w-20 h-20 border-4 border-slate-800 rounded-full"></div>
+                    <div className="absolute top-0 left-0 w-20 h-20 border-4 border-t-blue-500 border-r-purple-500 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl animate-pulse">
+                        ✨
+                    </div>
+                </div>
+
+                <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Analyzing Gradesheet</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-6 leading-relaxed">
+                    The AI is splitting the document, extracting student names, and calculating grades.
+                </p>
+
+                {/* Indeterminate Progress Bar */}
+                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
+                    <div className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-[shimmer_1s_infinite_linear]"></div>
+                </div>
+            </div>
+            
+            {/* Disclaimer */}
+            <p className="mt-8 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                Please do not close this window
+            </p>
+        </div>
+    );
+
     // --- RENDER: LOGIN ---
     if (authLoading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white">Loading...</div>;
 
@@ -269,7 +314,11 @@ const GradebookManager = () => {
 
     // --- RENDER: DASHBOARD ---
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-300 font-sans">
+        <div className="min-h-screen bg-[#020617] text-slate-300 font-sans relative">
+            
+            {/* RENDER OVERLAY IF UPLOADING */}
+            {uploading && <ProcessingOverlay />}
+
             <div className="bg-slate-900/50 border-b border-white/5 px-8 py-4 flex justify-between items-center backdrop-blur-md sticky top-0 z-50">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
@@ -286,6 +335,7 @@ const GradebookManager = () => {
             </div>
 
             <div className="p-8 pb-32 max-w-[95%] mx-auto">
+                {/* FILTERS BAR */}
                 <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/10 mb-8 flex flex-wrap gap-4 items-end">
                     
                     <div className="flex-1 min-w-[150px]">
@@ -340,12 +390,12 @@ const GradebookManager = () => {
                     <div className="relative">
                         <input type="file" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*,application/pdf" disabled={uploading} />
                         <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs flex items-center gap-2 transition-all shadow-lg hover:shadow-blue-500/20">
-                            {uploading ? <span className="animate-spin">⏳</span> : Icons.upload} 
-                            {uploading ? 'Analyzing...' : 'Upload Gradesheet'}
+                            {Icons.upload} Upload Gradesheet
                         </button>
                     </div>
                 </div>
 
+                {/* GRADE GRID */}
                 <div className="bg-slate-900/80 backdrop-blur rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center">
                         <h3 className="font-bold text-white uppercase tracking-widest">
