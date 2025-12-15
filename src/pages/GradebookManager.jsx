@@ -36,7 +36,10 @@ const GradebookManager = () => {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    
+    // --- UPLOAD STATE ---
     const [uploading, setUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
     
     // --- DYNAMIC HEADERS STATE ---
     const [detectedHeaders, setDetectedHeaders] = useState([]);
@@ -163,11 +166,29 @@ const GradebookManager = () => {
         
         sortAndSetRecords(data);
 
-        const subjects = new Set();
-        data.forEach(r => {
-            if(r.grades) Object.keys(r.grades).forEach(k => subjects.add(k));
+        // --- INTELLIGENT HEADER MERGE (FIX FOR RESHUFFLING) ---
+        setDetectedHeaders(currentHeaders => {
+            const dbSubjects = new Set();
+            data.forEach(r => {
+                if(r.grades) Object.keys(r.grades).forEach(k => dbSubjects.add(k));
+            });
+
+            // If we have no current headers (first load), use what the DB gave us
+            if (currentHeaders.length === 0) {
+                return Array.from(dbSubjects);
+            }
+
+            // If we DO have headers (from a file upload or previous view), preserve their order!
+            // Only append truly new subjects found in DB that aren't already on screen.
+            const newHeaderList = [...currentHeaders];
+            dbSubjects.forEach(sub => {
+                if (!newHeaderList.includes(sub)) {
+                    newHeaderList.push(sub);
+                }
+            });
+            
+            return newHeaderList;
         });
-        if(subjects.size > 0) setDetectedHeaders(Array.from(subjects));
     };
 
     const sortAndSetRecords = (data) => {
@@ -181,15 +202,28 @@ const GradebookManager = () => {
         setRecords(data);
     };
 
-    const handleFileUpload = async (e) => {
+    // --- FILE PROCESSING (DELAYED) ---
+    
+    const handleFileSelect = (e) => {
         const file = e.target.files[0];
-        if (!file) return;
-        
+        if (file) {
+            setSelectedFile(file);
+            e.target.value = ''; // Reset input so same file can be selected again if needed
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setSelectedFile(null);
+    };
+
+    const handleProcessFile = async () => {
+        if (!selectedFile) return;
         setUploading(true);
         
         try {
-            const { meta, records: extractedRecords } = await parseCumulativeGrades(file);
+            const { meta, records: extractedRecords } = await parseCumulativeGrades(selectedFile);
             
+            // USE FILE HEADERS (This establishes the "Correct" order)
             if (meta.headers && meta.headers.length > 0) {
                 setDetectedHeaders(meta.headers);
             } else {
@@ -199,22 +233,28 @@ const GradebookManager = () => {
             }
 
             const processedRecords = extractedRecords.map(rec => {
-                const nameClean = rec.name.replace(/[^A-Z]/g, '');
+                // Name Cleaning & Matching
+                const parsedNameClean = rec.name.toUpperCase().replace(/[^A-Z]/g, '');
                 
                 const match = enrolledStudents.find(enrolled => {
-                    const enrolledNameClean = `${enrolled.lastName}${enrolled.firstName}`.toUpperCase().replace(/[^A-Z]/g, '');
-                    return nameClean.includes(enrolledNameClean) || enrolledNameClean.includes(nameClean);
+                    const last = enrolled.lastName.toUpperCase().replace(/[^A-Z]/g, '');
+                    const first = enrolled.firstName.toUpperCase().replace(/[^A-Z]/g, '');
+                    return parsedNameClean.includes(last) && parsedNameClean.includes(first);
                 });
+
+                // Name Formatting (Standardize to DB format if matched)
+                let formattedName = rec.name.toUpperCase();
+                if (match) {
+                    const mi = match.middleName ? `${match.middleName.charAt(0)}.` : '';
+                    formattedName = `${match.lastName}, ${match.firstName} ${mi}`.toUpperCase().trim();
+                }
 
                 return {
                     studentId: match ? match.id : null, 
-                    studentName: match ? `${match.lastName}, ${match.firstName}` : rec.name, 
+                    studentName: formattedName, 
                     gender: rec.gender || 'MALE',
                     grades: rec.grades,
-                    
-                    // --- SAFETY FIX 1: Default to 0 if undefined ---
                     generalAverage: (rec.average !== undefined && rec.average !== null) ? rec.average : 0,
-                    
                     isUnlinked: !match, 
                     status: 'Unsaved'
                 };
@@ -222,17 +262,17 @@ const GradebookManager = () => {
 
             sortAndSetRecords(processedRecords);
             setIsEditing(true);
+            setSelectedFile(null); // Clear pending file
 
         } catch (error) {
             alert("AI Processing Failed: " + error.message);
         }
         
         setUploading(false);
-        e.target.value = ''; 
     };
 
     const handleSaveChanges = async () => {
-        if (!confirm(`You are about to save ${records.length} records to the database.\n\nTarget: ${filters.gradeLevel} - ${filters.section}\nQuarter: ${filters.quarter}\n\nProceed?`)) return;
+        if (!confirm(`You are about to save ${records.length} records.\n\nTarget: ${filters.gradeLevel} - ${filters.section}\n\nProceed?`)) return;
 
         setLoading(true);
         try {
@@ -240,14 +280,11 @@ const GradebookManager = () => {
             let savedCount = 0;
 
             records.forEach(rec => {
-                // Ensure ID is safe (remove commas/dots for doc ID)
                 const safeName = rec.studentName.replace(/[^a-zA-Z0-9]/g, '');
                 const sId = rec.studentId || `UNLINKED_${safeName}`;
-                
                 const docId = `${sId}_${filters.schoolYear}_${filters.quarter.replace(/\s/g, '')}`;
                 const docRef = doc(db, "academic_records", docId);
                 
-                // --- SAFETY FIX 2: Sanitize before write ---
                 const safeAverage = (rec.generalAverage === undefined || isNaN(rec.generalAverage)) ? 0 : rec.generalAverage;
 
                 batch.set(docRef, {
@@ -258,8 +295,8 @@ const GradebookManager = () => {
                     section: filters.section,
                     quarter: filters.quarter,
                     schoolYear: filters.schoolYear,
-                    grades: rec.grades || {}, // Ensure grades is object
-                    generalAverage: safeAverage, // Ensure number
+                    grades: rec.grades || {}, 
+                    generalAverage: safeAverage,
                     isUnlinked: rec.isUnlinked || false,
                     updatedAt: new Date()
                 });
@@ -267,60 +304,45 @@ const GradebookManager = () => {
             });
 
             await batch.commit();
-            alert(`Successfully Saved ${savedCount} Student Records!`);
+            alert(`Saved ${savedCount} records!`);
             setIsEditing(false);
+            
+            // Re-fetch to sync IDs, but logic in fetchGrades now preserves header order
             fetchGrades(); 
         } catch (error) {
             console.error(error);
-            alert("Error saving records: " + error.message);
+            alert("Error saving: " + error.message);
         }
         setLoading(false);
     };
 
-    // --- BATCH DELETE ---
+    // --- DELETION HANDLERS ---
     const handleDeleteAll = async () => {
-        if (records.length === 0) return;
-        if (!confirm(`⚠️ WARNING: You are about to delete ALL ${records.length} displayed records.\n\nThis cannot be undone. Are you sure?`)) return;
-        
+        if (!confirm("Delete ALL displayed records? This cannot be undone.")) return;
         setLoading(true);
         try {
             const batch = writeBatch(db);
-            let dbDeleteCount = 0;
-            
+            let count = 0;
             records.forEach(r => {
-                if (r.id) { 
-                    batch.delete(doc(db, "academic_records", r.id));
-                    dbDeleteCount++;
-                }
+                if (r.id) { batch.delete(doc(db, "academic_records", r.id)); count++; }
             });
-
-            if (dbDeleteCount > 0) await batch.commit();
-            
+            if (count > 0) await batch.commit();
             setRecords([]); 
-            alert("All records deleted.");
-        } catch (e) { 
-            alert("Delete failed: " + e.message); 
-        }
+            alert("Records deleted.");
+        } catch (e) { alert("Error: " + e.message); }
         setLoading(false);
     };
 
     const handleDeleteRecord = async (index) => {
         const record = records[index];
         if (!confirm(`Delete ${record.studentName}?`)) return;
-
         setLoading(true);
         try {
-            if (record.id) {
-                await deleteDoc(doc(db, "academic_records", record.id));
-            }
-            
+            if (record.id) await deleteDoc(doc(db, "academic_records", record.id));
             const updated = [...records];
             updated.splice(index, 1);
             setRecords(updated);
-            
-        } catch (error) {
-            alert("Failed to delete record.");
-        }
+        } catch (e) { alert("Error deleting record."); }
         setLoading(false);
     };
 
@@ -331,34 +353,18 @@ const GradebookManager = () => {
         setRecords(updated);
     };
 
-    // --- PROCESSING OVERLAY ---
+    // --- UI HELPERS ---
     const ProcessingOverlay = () => (
         <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
-            <div className="bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl flex flex-col items-center max-w-sm w-full relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-[50px] rounded-full -mr-10 -mt-10 pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 blur-[50px] rounded-full -ml-10 -mb-10 pointer-events-none"></div>
-                
-                <div className="relative mb-8">
-                    <div className="w-20 h-20 border-4 border-slate-800 rounded-full"></div>
-                    <div className="absolute top-0 left-0 w-20 h-20 border-4 border-t-blue-500 border-r-purple-500 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center text-2xl animate-pulse">✨</div>
-                </div>
-
-                <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Analyzing Gradesheet</h3>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-6 leading-relaxed">
-                    Reading File, Extracting Subjects, and Matching Names...
-                </p>
-
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
-                    <div className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-[shimmer_1s_infinite_linear]"></div>
-                </div>
+            <div className="bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl flex flex-col items-center relative overflow-hidden">
+                <div className="w-16 h-16 border-4 border-slate-800 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                <h3 className="text-xl font-black text-white uppercase tracking-tight">Processing Gradesheet</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">Please wait...</p>
             </div>
-            
-            <p className="mt-8 text-[9px] font-bold text-slate-600 uppercase tracking-widest">Please do not close this window</p>
         </div>
     );
 
-    // --- RENDER: LOGIN ---
+    // --- RENDER ---
     if (authLoading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white">Loading...</div>;
 
     if (!user) {
@@ -367,11 +373,8 @@ const GradebookManager = () => {
                 <div className="absolute inset-0 bg-[url('/2.png')] bg-cover opacity-20 pointer-events-none"></div>
                 <div className="bg-slate-900/80 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-white/10 relative z-10">
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg">
-                            {Icons.lock}
-                        </div>
+                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg">{Icons.lock}</div>
                         <h1 className="text-2xl font-black text-white uppercase">Teacher Access</h1>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Gradebook Management</p>
                     </div>
                     <form onSubmit={handleLogin} className="space-y-4">
                         <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-white font-bold outline-none focus:border-blue-500" required />
@@ -384,105 +387,92 @@ const GradebookManager = () => {
         );
     }
 
-    // --- RENDER: DASHBOARD ---
     return (
         <div className="min-h-screen bg-[#020617] text-slate-300 font-sans relative">
-            
             {uploading && <ProcessingOverlay />}
 
             <div className="bg-slate-900/50 border-b border-white/5 px-8 py-4 flex justify-between items-center backdrop-blur-md sticky top-0 z-50">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                        {Icons.document}
-                    </div>
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">{Icons.document}</div>
                     <div>
                         <h1 className="text-lg font-black text-white uppercase tracking-tight">Gradebook Manager</h1>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Logged in as {user.email}</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{user.email}</p>
                     </div>
                 </div>
-                <button onClick={handleLogout} className="px-5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] font-bold text-white uppercase tracking-widest transition-all border border-white/10">
-                    Log Out
-                </button>
+                <button onClick={handleLogout} className="px-5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] font-bold text-white uppercase tracking-widest border border-white/10">Log Out</button>
             </div>
 
             <div className="p-8 pb-32 max-w-[95%] mx-auto">
                 <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/10 mb-8 flex flex-wrap gap-4 items-end">
                     
+                    {/* FILTERS */}
                     <div className="flex-1 min-w-[150px]">
                         <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">School Year</label>
-                        <select 
-                            value={filters.schoolYear}
-                            onChange={e => setFilters({...filters, schoolYear: e.target.value})}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer"
-                        >
-                            {yearOptions.map(yr => <option key={yr} value={yr}>{yr}</option>)}
+                        <select value={filters.schoolYear} onChange={e => setFilters({...filters, schoolYear: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                            {yearOptions.map(yr => <option key={yr} value={yr} className="bg-slate-900">{yr}</option>)}
                         </select>
                     </div>
-
                     <div className="flex-1 min-w-[150px]">
                         <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Quarter</label>
-                        <select 
-                            value={filters.quarter}
-                            onChange={e => setFilters({...filters, quarter: e.target.value})}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer"
-                        >
-                            <option value="1st Quarter">1st Quarter</option>
-                            <option value="2nd Quarter">2nd Quarter</option>
-                            <option value="3rd Quarter">3rd Quarter</option>
-                            <option value="4th Quarter">4th Quarter</option>
+                        <select value={filters.quarter} onChange={e => setFilters({...filters, quarter: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                            {['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'].map(q => <option key={q} value={q} className="bg-slate-900">{q}</option>)}
                         </select>
                     </div>
-
                     <div className="flex-1 min-w-[150px]">
                         <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Grade Level</label>
-                        <select 
-                            value={filters.gradeLevel}
-                            onChange={e => setFilters({...filters, gradeLevel: e.target.value})}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer"
-                        >
-                            {gradeLevelOptions.map(gl => <option key={gl} value={gl}>{gl}</option>)}
+                        <select value={filters.gradeLevel} onChange={e => setFilters({...filters, gradeLevel: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                            {gradeLevelOptions.map(gl => <option key={gl} value={gl} className="bg-slate-900">{gl}</option>)}
                         </select>
                     </div>
-
                     <div className="flex-1 min-w-[150px]">
                         <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Section</label>
-                        <select 
-                            value={filters.section}
-                            onChange={e => setFilters({...filters, section: e.target.value})}
-                            disabled={!filters.gradeLevel}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer disabled:opacity-50"
-                        >
-                            {filteredSections.map(s => <option key={s.id} value={s.sectionName}>{s.sectionName}</option>)}
-                            {filteredSections.length === 0 && <option value="">No sections found</option>}
+                        <select value={filters.section} onChange={e => setFilters({...filters, section: e.target.value})} disabled={!filters.gradeLevel} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-bold outline-none focus:border-blue-500 appearance-none cursor-pointer disabled:opacity-50">
+                            {filteredSections.map(s => <option key={s.id} value={s.sectionName} className="bg-slate-900">{s.sectionName}</option>)}
+                            {filteredSections.length === 0 && <option value="" className="bg-slate-900">No sections found</option>}
                         </select>
                     </div>
 
-                    <div className="relative">
-                        <input type="file" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" disabled={uploading} />
-                        <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs flex items-center gap-2 transition-all shadow-lg hover:shadow-blue-500/20">
-                            {Icons.upload} Upload Gradesheet
-                        </button>
+                    {/* UPLOAD CONTROLS */}
+                    <div className="flex items-center gap-2">
+                        {!selectedFile ? (
+                            <label className="relative cursor-pointer group">
+                                <input type="file" onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" disabled={uploading} />
+                                <div className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs flex items-center gap-2 transition-all shadow-lg hover:shadow-blue-500/20 border border-blue-500">
+                                    {Icons.upload} Upload Gradesheet
+                                </div>
+                            </label>
+                        ) : (
+                            <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-xl border border-white/10 animate-fade-in">
+                                <div className="px-3 text-[10px] font-bold text-slate-300 uppercase tracking-wider max-w-[150px] truncate">
+                                    {selectedFile.name}
+                                </div>
+                                <button onClick={handleProcessFile} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] transition-colors shadow-lg">
+                                    Start Processing
+                                </button>
+                                <button onClick={handleRemoveFile} className="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-3 py-2 rounded-lg transition-colors border border-red-500/20" title="Cancel Upload">
+                                    ✕
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="bg-slate-900/80 backdrop-blur rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <h3 className="font-bold text-white uppercase tracking-widest">
+                            <h3 className="font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></span>
                                 {records.length} Student Records
                             </h3>
                             {records.length > 0 && (
-                                <button 
-                                    onClick={handleDeleteAll}
-                                    className="bg-red-900/20 hover:bg-red-900/40 text-red-400 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-red-500/20 transition-all flex items-center gap-2"
-                                >
+                                <button onClick={handleDeleteAll} className="bg-red-900/20 hover:bg-red-900/40 text-red-400 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-red-500/20 transition-all flex items-center gap-2">
                                     {Icons.trash} Delete All
                                 </button>
                             )}
                         </div>
                         {records.length > 0 && (
                             <div className="flex gap-2">
-                                <button onClick={() => setIsEditing(!isEditing)} className="text-xs font-bold text-slate-400 hover:text-white px-4 py-2 rounded-lg border border-white/10">
+                                <button onClick={() => setIsEditing(!isEditing)} className="text-xs font-bold text-slate-400 hover:text-white px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5">
                                     {isEditing ? 'Cancel Edit' : 'Edit Records'}
                                 </button>
                                 {isEditing && (
@@ -497,15 +487,15 @@ const GradebookManager = () => {
                     <div className="overflow-x-auto custom-scrollbar">
                          <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-black/20 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                    <th className="p-4 sticky left-0 bg-[#0f172a] z-10 border-r border-white/10">Student Name</th>
+                                <tr className="bg-slate-950 text-[10px] font-black text-slate-400 uppercase tracking-widest shadow-md">
+                                    <th className="p-5 sticky left-0 bg-slate-950 z-10 border-r border-white/5 w-[250px]">Student Name</th>
                                     
                                     {detectedHeaders.map(sub => (
-                                        <th key={sub} className="p-4 text-center border-l border-white/5">{sub}</th>
+                                        <th key={sub} className="p-4 text-center border-l border-white/5 min-w-[80px] hover:text-white transition-colors cursor-default">{sub}</th>
                                     ))}
                                     
-                                    <th className="p-4 text-center border-l border-white/5 text-emerald-500">Avg</th>
-                                    <th className="p-4 text-center border-l border-white/5 text-red-500">Action</th>
+                                    <th className="p-4 text-center border-l border-white/5 text-teal-400 bg-teal-900/10">Avg</th>
+                                    <th className="p-4 text-center border-l border-white/5 text-red-400 bg-red-900/10">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 text-xs font-bold text-slate-300">
@@ -517,58 +507,35 @@ const GradebookManager = () => {
                                     return (
                                         <React.Fragment key={rowIndex}>
                                             {showBoysHeader && (
-                                                <tr className="bg-blue-900/30 border-y border-white/10">
-                                                    <td colSpan={colSpan} className="p-3 pl-4 text-xs font-black text-blue-200 uppercase tracking-[0.2em] sticky left-0">
-                                                        BOYS
-                                                    </td>
+                                                <tr className="bg-blue-950/40 border-y border-blue-500/20">
+                                                    <td colSpan={colSpan} className="p-3 pl-5 text-xs font-black text-blue-300 uppercase tracking-[0.2em] sticky left-0">BOYS</td>
                                                 </tr>
                                             )}
                                             {showGirlsHeader && (
-                                                <tr className="bg-pink-900/30 border-y border-white/10 mt-4">
-                                                    <td colSpan={colSpan} className="p-3 pl-4 text-xs font-black text-pink-200 uppercase tracking-[0.2em] sticky left-0">
-                                                        GIRLS
-                                                    </td>
+                                                <tr className="bg-pink-950/40 border-y border-pink-500/20 mt-4">
+                                                    <td colSpan={colSpan} className="p-3 pl-5 text-xs font-black text-pink-300 uppercase tracking-[0.2em] sticky left-0">GIRLS</td>
                                                 </tr>
                                             )}
 
-                                            <tr className="hover:bg-white/5 transition-colors group">
-                                                <td className="p-4 sticky left-0 bg-[#0f172a] group-hover:bg-[#1e293b] border-r border-white/10 text-white uppercase">
+                                            <tr className="hover:bg-slate-800/50 transition-colors group">
+                                                <td className="p-4 sticky left-0 bg-[#020617] group-hover:bg-[#1e293b] border-r border-white/5 text-white uppercase tracking-wide">
                                                     {rec.studentName}
-                                                    {rec.isUnlinked && (
-                                                        <span className="ml-2 text-[9px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">
-                                                            Unlinked
-                                                        </span>
-                                                    )}
+                                                    {rec.isUnlinked && <span className="ml-2 text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/20">UNLINKED</span>}
                                                 </td>
                                                 
                                                 {detectedHeaders.map(sub => (
                                                     <td key={sub} className="p-2 text-center border-l border-white/5">
                                                         {isEditing ? (
-                                                            <input 
-                                                                type="number" 
-                                                                value={rec.grades[sub] || ''} 
-                                                                onChange={(e) => handleGradeChange(rowIndex, sub, e.target.value)}
-                                                                className="w-12 bg-black/30 border border-white/10 rounded text-center text-white focus:border-blue-500 outline-none"
-                                                            />
+                                                            <input type="number" value={rec.grades[sub] || ''} onChange={(e) => handleGradeChange(rowIndex, sub, e.target.value)} className="w-12 bg-black/30 border border-white/10 rounded text-center text-white focus:border-blue-500 outline-none text-xs py-1"/>
                                                         ) : (
-                                                            <span className={rec.grades[sub] < 75 ? 'text-red-400' : 'text-slate-300'}>
-                                                                {rec.grades[sub] || '-'}
-                                                            </span>
+                                                            <span className={rec.grades[sub] < 75 ? 'text-red-400 font-black' : 'text-slate-300'}>{rec.grades[sub] || '-'}</span>
                                                         )}
                                                     </td>
                                                 ))}
                                                 
-                                                <td className="p-4 text-center font-black text-emerald-400 border-l border-white/5">
-                                                    {rec.generalAverage}
-                                                </td>
-                                                <td className="p-4 text-center border-l border-white/5">
-                                                    <button 
-                                                        onClick={() => handleDeleteRecord(rowIndex)}
-                                                        className="text-slate-600 hover:text-red-500 transition-colors"
-                                                        title="Delete Record"
-                                                    >
-                                                        {Icons.trash || <span>🗑️</span>}
-                                                    </button>
+                                                <td className="p-4 text-center font-black text-teal-400 border-l border-white/5 bg-teal-900/5">{rec.generalAverage}</td>
+                                                <td className="p-4 text-center border-l border-white/5 bg-red-900/5">
+                                                    <button onClick={() => handleDeleteRecord(rowIndex)} className="text-slate-500 hover:text-red-400 transition-colors">{Icons.trash || '🗑️'}</button>
                                                 </td>
                                             </tr>
                                         </React.Fragment>
@@ -576,9 +543,7 @@ const GradebookManager = () => {
                                 })}
                                 {records.length === 0 && (
                                     <tr>
-                                        <td colSpan={15} className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest">
-                                            No records found for this selection.
-                                        </td>
+                                        <td colSpan={15} className="p-20 text-center text-slate-500 opacity-50 font-bold uppercase tracking-widest">No records available</td>
                                     </tr>
                                 )}
                             </tbody>
