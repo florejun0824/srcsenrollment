@@ -14,124 +14,181 @@ const EXCLUDED_TERMS = [
     'PARENT', 'TEACHER', 'ADVISER', 'CHECKED BY', 'ATTESTED', 'PRINCIPAL', 
     'DATE', 'LPT', 'MA-ELM', 'PHD', 'EDD', 'GUIDANCE', 'COORDINATOR', 
     'SIGNATURE', 'APPROVED', 'SUBMITTED', 'NAME OF LEARNERS', 'DEPARTMENT',
-    'MALE', 'FEMALE', 'TOTAL' // Markers we handle manually
+    'MALE', 'FEMALE', 'TOTAL' 
 ];
 
-// --- TEXT EXTRACTION ENGINE (SPATIAL) ---
-// This mimics your Lesson Generator's text extraction but adds logic 
-// to keep table rows together based on Y-coordinates.
-const extractStructuredTextFromPDF = async (arrayBuffer) => {
+// --- 1. SPATIAL TEXT EXTRACTOR (RETURNS PAGES ARRAY) ---
+const extractStructuredTextPages = async (arrayBuffer) => {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullDocumentText = "";
+    const pages = [];
 
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         
-        // 1. Group text items by Y-coordinate (Row Detection)
-        // Items within 5px vertical difference are considered the same row
+        // Group items by Y-coordinate (Row Detection)
         const rows = {};
         textContent.items.forEach(item => {
-            const y = Math.round(item.transform[5] / 5) * 5; // Bucket Y values
+            const y = Math.round(item.transform[5] / 5) * 5; // Bucket Y values to 5px tolerance
             if (!rows[y]) rows[y] = [];
             rows[y].push({ x: item.transform[4], str: item.str.trim() });
         });
 
-        // 2. Sort Rows (Top to Bottom) and Columns (Left to Right)
-        // PDF coordinates start from Bottom-Left, so higher Y is higher on page.
+        // Sort Rows (Top to Bottom)
         const sortedY = Object.keys(rows).sort((a, b) => b - a);
         
         const pageLines = sortedY.map(y => {
-            // Sort items in this row by X coordinate (Left to Right)
+            // Sort Columns (Left to Right)
             const rowItems = rows[y].sort((a, b) => a.x - b.x);
-            // Join with a pipe '|' to simulate table cells
-            return rowItems.map(item => item.str).join(' | ');
+            return rowItems.map(item => item.str).join(' | '); // Pipe separator
         });
 
-        fullDocumentText += `--- PAGE ${i} ---\n` + pageLines.join('\n') + "\n\n";
+        // Add this page's text as a distinct chunk
+        pages.push(pageLines.join('\n'));
     }
     
-    return fullDocumentText;
+    return pages;
 };
 
-// --- GEMMA WORKER ---
-const processWithGemma = async (structuredText) => {
+// --- 2. HEADER SCOUT (Look at Page 1 only) ---
+const detectHeaders = async (firstPageText) => {
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: "gemma-3-27b-it", // Using Gemma as requested
+                model: "gemma-3-27b-it", 
                 prompt: `
-                You are a data extraction assistant. I will provide text extracted from a PDF Grade Sheet.
-                The text is formatted with '|' separators to indicate table columns.
-
-                **YOUR TASK:**
-                1. Identify student rows. A student row typically looks like: "1. LASTNAME, FIRSTNAME | 85 | 88 | 90...".
-                2. Extract the STUDENT NAME and ALL GRADES found in that row.
-                3. Map the grades to subject headers if you can find them (e.g. Math, Filipino). If headers are unclear, just label keys as "Sub1", "Sub2", etc.
-                4. Detect "BOYS" and "GIRLS" sections. Assign a "gender" field ('MALE' or 'FEMALE') to each student based on which section they appear under. Default to 'MALE' if unsure.
+                Analyze this Grade Sheet text.
+                Identify the SUBJECT HEADERS (e.g. Filipino, English, Math, Science).
+                Ignore "Name", "Average", "Section".
                 
-                **IGNORE THESE LINES:**
-                - Lines containing: ${EXCLUDED_TERMS.join(', ')}
-                - Headers, Footers, Signatures.
-
-                **JSON OUTPUT FORMAT (STRICT):**
-                Return ONLY a valid JSON array. Do not include markdown formatting like \`\`\`json.
-                [
-                    {
-                        "name": "ALILAIN, BRYAN D.",
-                        "gender": "MALE",
-                        "grades": { "Math": "82", "Filipino": "78", "English": "81" ... },
-                        "average": "81.00"
-                    },
-                    ...
-                ]
-
-                **SOURCE TEXT:**
-                ${structuredText}
+                Return strictly a JSON array of strings: ["Math", "English", "Filipino"]
+                
+                TEXT:
+                ${firstPageText.substring(0, 1500)}
                 `
             })
         });
-
-        if (!response.ok) throw new Error(`AI Error: ${response.status}`);
         
+        if (!response.ok) return [];
         const data = await response.json();
-        // Clean markdown if Gemma adds it
-        const cleanText = data.text.replace(/```json|```/g, '').trim();
-        return JSON.parse(cleanText);
+        const clean = data.text.replace(/```json|```/g, '').trim();
+        return JSON.parse(clean);
+    } catch (e) {
+        console.warn("Header detection failed, defaulting to auto-inference.");
+        return [];
+    }
+};
 
+// --- 3. BATCH WORKER (Process One Page) ---
+const processPageWithGemma = async (pageText, pageIndex, knownHeaders) => {
+    try {
+        // Retry logic for 504/500 errors
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: "gemma-3-27b-it", 
+                        prompt: `
+                        You are a data extraction assistant. 
+                        
+                        CONTEXT:
+                        - This is Page ${pageIndex + 1} of a Grade Sheet.
+                        - Columns are separated by '|'.
+                        - The detected subject headers are: ${JSON.stringify(knownHeaders)}.
+                        
+                        YOUR TASK:
+                        1. Extract student rows. Format: "LASTNAME, FIRSTNAME".
+                        2. Map grades to the subject headers provided.
+                        3. If you see "BOYS" or "GIRLS", use that to infer gender for subsequent names. Default to 'MALE' if unknown.
+                        
+                        IGNORE:
+                        - Lines containing: ${EXCLUDED_TERMS.join(', ')}
+                        - Headers, Footers, Signatures.
+
+                        OUTPUT FORMAT:
+                        Return ONLY a valid JSON array. No markdown.
+                        [
+                            {
+                                "name": "ALILAIN, BRYAN D.",
+                                "gender": "MALE",
+                                "grades": { "Math": "82", "English": "81"... },
+                                "average": "81.00"
+                            }
+                        ]
+
+                        PAGE TEXT:
+                        ${pageText}
+                        `
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Server status: ${response.status}`);
+                
+                const data = await response.json();
+                const cleanText = data.text.replace(/```json|```/g, '').trim();
+                return JSON.parse(cleanText);
+
+            } catch (err) {
+                if (attempt === 2) throw err; // Throw on final fail
+                console.warn(`Page ${pageIndex + 1} attempt ${attempt + 1} failed. Retrying...`);
+                await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+            }
+        }
     } catch (error) {
-        console.error("Gemma parsing failed:", error);
-        throw new Error("Failed to process grades with AI.");
+        console.error(`Failed to process Page ${pageIndex + 1}:`, error);
+        return []; // Return empty for this page to allow others to succeed
     }
 };
 
 // --- MAIN FUNCTION ---
 export const parseCumulativeGrades = async (file) => {
-    console.log("📄 Reading PDF Text (Spatial Mode)...");
+    console.log("📄 Reading PDF Structure...");
     
-    // 1. Client-Side Text Extraction (No Vision)
+    // 1. Extract Text Pages (Client Side - Fast)
     const arrayBuffer = await file.arrayBuffer();
-    const structuredText = await extractStructuredTextFromPDF(arrayBuffer);
+    const textPages = await extractStructuredTextPages(arrayBuffer);
     
-    console.log("🤖 Sending Text to Gemma...");
-    
-    // 2. Send Text to Gemma
-    // We send the whole text at once because Gemma has a large context window (8k/128k)
-    // and text is much smaller than images.
-    const records = await processWithGemma(structuredText);
+    console.log(`✅ Extracted ${textPages.length} pages of text.`);
 
-    // 3. Post-Processing (Headers)
-    // Extract unique subject keys from the first few records to build headers
-    const headersSet = new Set();
-    records.slice(0, 5).forEach(r => Object.keys(r.grades).forEach(k => headersSet.add(k)));
+    // 2. Detect Headers (Use Page 1)
+    console.log("🕵️ Detecting headers from Page 1...");
+    const headers = await detectHeaders(textPages[0]);
+    console.log("Headers found:", headers);
+
+    // 3. Batch Process Pages (Sequential to prevent Rate Limiting/Timeout)
+    let allRecords = [];
+    
+    for (let i = 0; i < textPages.length; i++) {
+        console.log(`⚡ Processing Page ${i + 1}/${textPages.length}...`);
+        
+        const pageRecords = await processPageWithGemma(textPages[i], i, headers);
+        
+        if (Array.isArray(pageRecords)) {
+            allRecords = [...allRecords, ...pageRecords];
+        }
+        
+        // Small breathing room between batches to prevent 429 Rate Limits
+        await new Promise(r => setTimeout(r, 1000));
+    }
+
+    // 4. Post-Processing
+    // Deduplicate by name just in case of overlap (rare with page splitting)
+    const uniqueMap = new Map();
+    allRecords.forEach(r => {
+        if(r.name && r.name.length > 3) {
+            uniqueMap.set(r.name.toUpperCase().replace(/[^A-Z]/g, ''), r);
+        }
+    });
 
     return {
         meta: { 
-            headers: Array.from(headersSet),
-            gradeLevel: "Detected from Context" 
+            headers: headers.length > 0 ? headers : ["Math", "English", "Science", "Filipino"], // Fallback
+            gradeLevel: "Detected" 
         },
-        records: records
+        records: Array.from(uniqueMap.values())
     };
 };
