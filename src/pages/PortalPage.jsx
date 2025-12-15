@@ -74,21 +74,21 @@ const SYSTEM_CARDS = [
             badge: { text: 'Authorized Personnel', style: 'bg-rose-500/20 text-rose-300 border-rose-500/30' }
         }
     },
-    {
-        id: 'records',
-        title: 'Academic Records',
-        description: 'View official transcripts, form 137, and historical grades.',
-        icon: <FileText className="w-10 h-10" />,
-        actionId: 'records', // Trigger Modal
-        isDisabled: true,
-        theme: {
-            color: 'from-slate-600 to-slate-900',
-            border: 'group-hover:border-slate-500/50',
-            shadow: 'hover:shadow-slate-900/40',
-            iconBg: 'bg-slate-500/20 text-slate-300',
-            badge: { text: 'Coming Soon', style: 'bg-slate-700/50 text-slate-400 border-slate-600' }
-        }
-    }
+	{
+	        id: 'records',
+	        title: 'Academic Records',
+	        description: 'View your official grades and academic history. (Student Login Required)',
+	        icon: <FileText className="w-10 h-10" />,
+	        linkTo: '/student-portal', // <--- Update this link to the new Student Portal route
+	        isDisabled: false,         // <--- Change this to false to enable the button
+	        theme: {
+	            color: 'from-slate-600 to-slate-900',
+	            border: 'group-hover:border-slate-500/50',
+	            shadow: 'hover:shadow-slate-900/40',
+	            iconBg: 'bg-slate-500/20 text-slate-300',
+	            badge: { text: 'Student Access', style: 'bg-slate-700/50 text-slate-300 border-slate-600' } // Updated badge
+	        }
+	    }
 ];
 
 // --- COMPONENTS ---
