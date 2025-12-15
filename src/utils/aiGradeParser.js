@@ -11,13 +11,13 @@ const PROD_API_URL = import.meta.env.VITE_API_BASE_URL || '';
 const isNative = Capacitor.isNativePlatform();
 const API_URL = `${isNative ? PROD_API_URL : ''}/api/gemini`;
 
-// --- STOP TOKENS (Stop parsing immediately if seen) ---
+// --- STOP TOKENS ---
 const STOP_TERMS = [
     'CLASS ADVISER', 'ADVISER', 'CHECKED BY', 'PREPARED BY', 'ATTESTED', 
     'PRINCIPAL', 'SCHOOL HEAD', 'DIRECTOR', 'SIGNATURE', 'DATE CHECKED'
 ];
 
-// --- SKIP TERMS (Skip this row, but keep parsing) ---
+// --- SKIP TERMS ---
 const EXCLUDED_TERMS = [
     'PARENT', 'TEACHER', 'LPT', 'MA-ELM', 'PHD', 'EDD', 'GUIDANCE', 
     'COORDINATOR', 'DEPARTMENT', 'MEAN', 'MPS', 'TOTAL', 
@@ -40,18 +40,12 @@ const parseAndRound = (val) => {
 const isValidStudentName = (nameStr) => {
     if (!nameStr || nameStr.length < 3) return false;
     const upper = nameStr.toUpperCase();
-
-    // 1. Must contain a comma (Standard: "LAST, FIRST")
-    if (!upper.includes(',')) return false;
-
-    // 2. Must NOT be a stop/exclude term
+    if (!upper.includes(',')) return false; // Must be "Last, First"
     if (STOP_TERMS.some(t => upper.includes(t))) return false;
     if (EXCLUDED_TERMS.some(t => upper.includes(t))) return false;
-
-    // 3. Must NOT contain parentheses
     if (upper.includes('(') || upper.includes(')')) return false;
-
-    // 4. Must start with a letter (after cleaning numbers)
+    
+    // Must start with a letter (after cleaning numbers)
     const clean = nameStr.replace(/^[\d.\s]+/, ''); 
     if (!/^[a-zA-Z]/.test(clean)) return false;
 
@@ -62,28 +56,41 @@ const isValidStudentName = (nameStr) => {
 // 1. EXCEL PARSER (Native)
 // ============================================================================
 const parseExcelFile = async (arrayBuffer) => {
-    // Read with cellStyles: true to ensure we get hidden row metadata
     const workbook = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // Get Row Metadata (Hidden Status)
     const rowMeta = worksheet['!rows'] || [];
     const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-    // A. Find Header Row
+    // A. Find Header Row & Average Column
     let headerRowIndex = -1;
     let headers = [];
+    let averageColIndex = -1; // Explicitly track where "Average" is
     
     for (let i = 0; i < Math.min(25, rawData.length); i++) {
-        // Skip hidden rows in header search
         if (rowMeta[i] && (rowMeta[i].hidden || rowMeta[i].hpx === 0)) continue;
 
-        const rowStr = (rawData[i] || []).join(' ').toUpperCase();
+        const row = rawData[i];
+        const rowStr = (row || []).join(' ').toUpperCase();
+        
         if (rowStr.includes('MATH') || rowStr.includes('FILIPINO') || rowStr.includes('ENGLISH') || rowStr.includes('SCIENCE')) {
             headerRowIndex = i;
-            headers = rawData[i].map(cell => (cell || '').toString().trim())
-                .filter(h => h && !['NO', 'NO.', 'NAME', 'LEARNER', 'AVERAGE', 'REMARKS', 'GENDER', 'FINAL'].includes(h.toUpperCase()));
+            
+            // Map Headers and find Average Column
+            row.forEach((cell, idx) => {
+                const h = (cell || '').toString().trim().toUpperCase();
+                if (!h) return;
+
+                // Check if this is the Average column
+                if (['AVERAGE', 'AVG', 'GEN AVG', 'FINAL', 'RATING', 'GEN.'].some(k => h.includes(k))) {
+                    averageColIndex = idx;
+                } 
+                // Only add real subjects to the headers list
+                else if (!['NO', 'NO.', 'NAME', 'LEARNER', 'REMARKS', 'GENDER', 'MALE', 'FEMALE'].includes(h)) {
+                    headers.push(h); // Store simple subject name
+                }
+            });
             break;
         }
     }
@@ -99,22 +106,14 @@ const parseExcelFile = async (arrayBuffer) => {
     let currentGender = 'MALE'; 
 
     for (let i = headerRowIndex + 1; i < rawData.length; i++) {
-        // 1. STRICT HIDDEN ROW CHECK
-        // Check if row is explicitly hidden OR has zero height
-        if (rowMeta[i] && (rowMeta[i].hidden || rowMeta[i].hpx === 0)) {
-            continue; 
-        }
+        // Skip Hidden Rows
+        if (rowMeta[i] && (rowMeta[i].hidden || rowMeta[i].hpx === 0)) continue;
 
         const row = rawData[i];
         if (!row || row.length === 0) continue;
 
-        // Check first column for Markers or Stop Tokens
         const firstCol = (row[0] || '').toString().toUpperCase();
-        
-        // 🛑 STOP CONDITION: If we hit "Adviser", "Principal", etc., STOP parsing entirely.
-        if (STOP_TERMS.some(term => firstCol.includes(term))) {
-            break; 
-        }
+        if (STOP_TERMS.some(term => firstCol.includes(term))) break; 
 
         // Gender Switch
         if (firstCol.includes('GIRLS') || firstCol.includes('FEMALE')) {
@@ -122,19 +121,16 @@ const parseExcelFile = async (arrayBuffer) => {
             continue;
         }
 
-        // 2. Identify Name
+        // Identify Name
         let name = '';
         let nameIndex = -1;
         if (typeof row[1] === 'string' && row[1].length > 3) { name = row[1]; nameIndex = 1; }
         else if (typeof row[0] === 'string' && row[0].length > 3) { name = row[0]; nameIndex = 0; }
 
-        // Clean name (Remove "1. ", "25.")
         const cleanName = name.replace(/^\d+[\.\s]+/, '').trim();
-
-        // 3. STRICT VALIDATION
         if (!isValidStudentName(cleanName)) continue;
 
-        // 4. Map Grades
+        // Map Grades
         const grades = {};
         let gradeColIndex = nameIndex + 1;
         
@@ -143,27 +139,47 @@ const parseExcelFile = async (arrayBuffer) => {
                 gradeColIndex++;
             }
             if (gradeColIndex < row.length) {
-                grades[subject] = row[gradeColIndex];
-                gradeColIndex++;
+                // If we accidentally hit the Average column while looking for subjects, skip it
+                if (gradeColIndex === averageColIndex) {
+                    gradeColIndex++;
+                }
+                
+                if (gradeColIndex < row.length) {
+                    grades[subject] = row[gradeColIndex];
+                    gradeColIndex++;
+                }
             }
         });
 
-        // 5. Average
+        // 5. EXTRACT AVERAGE (The Fix)
         let average = 0;
-        while (gradeColIndex < row.length) {
-            const val = parseFloat(row[gradeColIndex]);
-            if (!isNaN(val)) {
-                average = val;
-                break;
+        
+        if (averageColIndex !== -1 && row[averageColIndex]) {
+            // Direct extraction from known column
+            average = parseAndRound(row[averageColIndex]);
+        } else {
+            // Fallback: Scan for the last number in the row
+            // (Useful if the header "Average" wasn't found textually)
+            let scanIndex = row.length - 1;
+            while (scanIndex > nameIndex) {
+                const val = parseFloat(row[scanIndex]);
+                if (!isNaN(val) && val > 50 && val <= 100) { // Valid average range
+                    average = parseAndRound(val);
+                    break;
+                }
+                scanIndex--;
             }
-            gradeColIndex++;
         }
+
+        // Ghost Check
+        const hasValidGrades = Object.values(grades).some(g => g && !isNaN(parseFloat(g)));
+        if (!hasValidGrades && average === 0) continue;
 
         records.push({
             name: cleanName,
             gender: currentGender,
             grades: grades,
-            average: parseAndRound(average)
+            average: average
         });
     }
 
@@ -171,7 +187,7 @@ const parseExcelFile = async (arrayBuffer) => {
 };
 
 // ============================================================================
-// 2. PDF PARSER UTILITIES
+// 2. PDF PARSER UTILITIES (Unchanged)
 // ============================================================================
 
 const performOCR = async (pdfPage) => {
@@ -264,20 +280,15 @@ const extractPreTaggedLines = async (pdfDoc) => {
         linesToProcess.forEach(lineText => {
             const upperLine = lineText.toUpperCase();
 
-            // Gender Switch
             if (upperLine.includes('GIRLS') || (upperLine.includes('FEMALE') && !upperLine.includes('MA-ELM'))) {
                 currentGender = 'FEMALE';
                 return; 
             }
-            
-            // Check STOP tokens in PDF lines too
             if (STOP_TERMS.some(t => upperLine.includes(t))) return;
 
-            // Extract Name Part
             const parts = lineText.split('|');
             const potentialName = parts[0].trim().replace(/^\d+[\.\s]+/, '');
 
-            // Strict Validation
             if (isValidStudentName(potentialName)) {
                 allLines.push(`[GENDER:${currentGender}] ${lineText}`);
             }

@@ -41,10 +41,9 @@ const GradebookManager = () => {
     // --- DYNAMIC HEADERS STATE ---
     const [detectedHeaders, setDetectedHeaders] = useState([]);
 
-    // --- 1. INITIALIZATION (Load Options) ---
+    // --- 1. INITIALIZATION ---
     useEffect(() => {
         const init = async () => {
-            // Generate School Years
             const years = [];
             const startYear = 2025;
             for (let i = 0; i < 10; i++) {
@@ -52,7 +51,6 @@ const GradebookManager = () => {
             }
             setYearOptions(years);
 
-            // Fetch Sections from Firestore
             try {
                 const q = query(collection(db, "sections"));
                 const snap = await getDocs(q);
@@ -65,7 +63,6 @@ const GradebookManager = () => {
                 
                 setAllSections(sectionsData);
 
-                // Sort Grade Levels numerically
                 const uniqueGrades = [...new Set(sectionsData.map(s => s.gradeLevel))].sort((a, b) => {
                     const numA = parseInt(a.replace(/\D/g, '')) || 0;
                     const numB = parseInt(b.replace(/\D/g, '')) || 0;
@@ -74,7 +71,6 @@ const GradebookManager = () => {
                 
                 setGradeLevelOptions(uniqueGrades);
 
-                // Set Default Filters
                 if (uniqueGrades.length > 0) {
                     const defaultGrade = uniqueGrades[0];
                     const defaultSec = sectionsData.find(s => s.gradeLevel === defaultGrade)?.sectionName || '';
@@ -97,7 +93,7 @@ const GradebookManager = () => {
         return () => unsubscribe();
     }, []);
 
-    // --- 3. FILTER LOGIC (Update Sections when Grade Changes) ---
+    // --- 3. FILTER LOGIC ---
     useEffect(() => {
         if (filters.gradeLevel) {
             const relevantSections = allSections
@@ -113,20 +109,18 @@ const GradebookManager = () => {
         }
     }, [filters.gradeLevel, allSections]);
 
-    // --- 4. LOAD CLASS LIST & GRADES (When Filters Change) ---
+    // --- 4. LOAD CLASS LIST & GRADES ---
     useEffect(() => {
         const loadData = async () => {
             if (!user || !filters.gradeLevel) return;
             
             setLoading(true);
             try {
-                // A. Load Official Class List (for Linking)
                 const enrollQ = query(collection(db, "enrollments"), where("gradeLevel", "==", filters.gradeLevel));
                 const enrollSnap = await getDocs(enrollQ);
                 const students = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() }));
                 setEnrolledStudents(students);
 
-                // B. Load Existing Grades if Section is selected
                 if (filters.section) {
                     await fetchGrades();
                 }
@@ -169,7 +163,6 @@ const GradebookManager = () => {
         
         sortAndSetRecords(data);
 
-        // Extract headers from loaded data
         const subjects = new Set();
         data.forEach(r => {
             if(r.grades) Object.keys(r.grades).forEach(k => subjects.add(k));
@@ -178,7 +171,6 @@ const GradebookManager = () => {
     };
 
     const sortAndSetRecords = (data) => {
-        // Sort: Boys first, then Girls, then Alphabetical
         data.sort((a, b) => {
             const genderA = (a.gender || 'MALE').toUpperCase();
             const genderB = (b.gender || 'MALE').toUpperCase();
@@ -196,10 +188,8 @@ const GradebookManager = () => {
         setUploading(true);
         
         try {
-            // 1. Process File (Extracts Official List from Text + Grades from Vision)
             const { meta, records: extractedRecords } = await parseCumulativeGrades(file);
             
-            // 2. Set Headers
             if (meta.headers && meta.headers.length > 0) {
                 setDetectedHeaders(meta.headers);
             } else {
@@ -208,25 +198,24 @@ const GradebookManager = () => {
                 setDetectedHeaders(Array.from(subjects));
             }
 
-            // 3. MAP & LINK TO DATABASE
-            // We use the PDF list as the source of truth for THIS upload, 
-            // but we try to link them to the database 'enrolledStudents' for ID tracking.
             const processedRecords = extractedRecords.map(rec => {
                 const nameClean = rec.name.replace(/[^A-Z]/g, '');
                 
-                // Fuzzy Match against Firestore Enrolled List
                 const match = enrolledStudents.find(enrolled => {
                     const enrolledNameClean = `${enrolled.lastName}${enrolled.firstName}`.toUpperCase().replace(/[^A-Z]/g, '');
                     return nameClean.includes(enrolledNameClean) || enrolledNameClean.includes(nameClean);
                 });
 
                 return {
-                    studentId: match ? match.id : null, // Store ID if found
-                    studentName: match ? `${match.lastName}, ${match.firstName}` : rec.name, // Prefer DB name formatting
+                    studentId: match ? match.id : null, 
+                    studentName: match ? `${match.lastName}, ${match.firstName}` : rec.name, 
                     gender: rec.gender || 'MALE',
                     grades: rec.grades,
-                    generalAverage: rec.generalAverage,
-                    isUnlinked: !match, // Flag if not found in DB
+                    
+                    // --- SAFETY FIX 1: Default to 0 if undefined ---
+                    generalAverage: (rec.average !== undefined && rec.average !== null) ? rec.average : 0,
+                    
+                    isUnlinked: !match, 
                     status: 'Unsaved'
                 };
             });
@@ -239,7 +228,7 @@ const GradebookManager = () => {
         }
         
         setUploading(false);
-        e.target.value = ''; // Reset input
+        e.target.value = ''; 
     };
 
     const handleSaveChanges = async () => {
@@ -251,15 +240,16 @@ const GradebookManager = () => {
             let savedCount = 0;
 
             records.forEach(rec => {
-                // If the student isn't linked to enrollment, we create a placeholder ID
-                // Note: Unlinked students won't be able to login to Student Portal, 
-                // but teachers can still view/print their grades here.
-                const sId = rec.studentId || `UNLINKED_${rec.studentName.replace(/\s/g,'')}`;
+                // Ensure ID is safe (remove commas/dots for doc ID)
+                const safeName = rec.studentName.replace(/[^a-zA-Z0-9]/g, '');
+                const sId = rec.studentId || `UNLINKED_${safeName}`;
                 
-                // Create Unique ID: STUDENT_ID + SY + QUARTER
                 const docId = `${sId}_${filters.schoolYear}_${filters.quarter.replace(/\s/g, '')}`;
                 const docRef = doc(db, "academic_records", docId);
                 
+                // --- SAFETY FIX 2: Sanitize before write ---
+                const safeAverage = (rec.generalAverage === undefined || isNaN(rec.generalAverage)) ? 0 : rec.generalAverage;
+
                 batch.set(docRef, {
                     studentId: sId,
                     studentName: rec.studentName,
@@ -268,8 +258,8 @@ const GradebookManager = () => {
                     section: filters.section,
                     quarter: filters.quarter,
                     schoolYear: filters.schoolYear,
-                    grades: rec.grades,
-                    generalAverage: rec.generalAverage,
+                    grades: rec.grades || {}, // Ensure grades is object
+                    generalAverage: safeAverage, // Ensure number
                     isUnlinked: rec.isUnlinked || false,
                     updatedAt: new Date()
                 });
@@ -298,7 +288,7 @@ const GradebookManager = () => {
             let dbDeleteCount = 0;
             
             records.forEach(r => {
-                if (r.id) { // Only delete if it exists in DB (has doc ID)
+                if (r.id) { 
                     batch.delete(doc(db, "academic_records", r.id));
                     dbDeleteCount++;
                 }
@@ -306,7 +296,7 @@ const GradebookManager = () => {
 
             if (dbDeleteCount > 0) await batch.commit();
             
-            setRecords([]); // Clear UI
+            setRecords([]); 
             alert("All records deleted.");
         } catch (e) { 
             alert("Delete failed: " + e.message); 
@@ -336,41 +326,35 @@ const GradebookManager = () => {
 
     const handleGradeChange = (index, subject, value) => {
         const updated = [...records];
+        if (!updated[index].grades) updated[index].grades = {};
         updated[index].grades[subject] = value;
         setRecords(updated);
     };
 
-    // --- COMPONENT: PROCESSING OVERLAY ---
+    // --- PROCESSING OVERLAY ---
     const ProcessingOverlay = () => (
         <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
             <div className="bg-slate-900 p-8 rounded-[2rem] border border-white/10 shadow-2xl flex flex-col items-center max-w-sm w-full relative overflow-hidden">
-                {/* Background Glow */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-[50px] rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 blur-[50px] rounded-full -ml-10 -mb-10 pointer-events-none"></div>
                 
-                {/* Animated Spinner */}
                 <div className="relative mb-8">
                     <div className="w-20 h-20 border-4 border-slate-800 rounded-full"></div>
                     <div className="absolute top-0 left-0 w-20 h-20 border-4 border-t-blue-500 border-r-purple-500 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center text-2xl animate-pulse">
-                        ✨
-                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl animate-pulse">✨</div>
                 </div>
 
                 <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Analyzing Gradesheet</h3>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-6 leading-relaxed">
-                    Reading PDF Text, Extracting Subjects, and Matching Names...
+                    Reading File, Extracting Subjects, and Matching Names...
                 </p>
 
-                {/* Indeterminate Progress Bar */}
                 <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
                     <div className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-[shimmer_1s_infinite_linear]"></div>
                 </div>
             </div>
             
-            <p className="mt-8 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-                Please do not close this window
-            </p>
+            <p className="mt-8 text-[9px] font-bold text-slate-600 uppercase tracking-widest">Please do not close this window</p>
         </div>
     );
 
@@ -404,7 +388,6 @@ const GradebookManager = () => {
     return (
         <div className="min-h-screen bg-[#020617] text-slate-300 font-sans relative">
             
-            {/* RENDER OVERLAY IF UPLOADING */}
             {uploading && <ProcessingOverlay />}
 
             <div className="bg-slate-900/50 border-b border-white/5 px-8 py-4 flex justify-between items-center backdrop-blur-md sticky top-0 z-50">
@@ -423,7 +406,6 @@ const GradebookManager = () => {
             </div>
 
             <div className="p-8 pb-32 max-w-[95%] mx-auto">
-                {/* FILTERS BAR */}
                 <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/10 mb-8 flex flex-wrap gap-4 items-end">
                     
                     <div className="flex-1 min-w-[150px]">
@@ -476,21 +458,13 @@ const GradebookManager = () => {
                     </div>
 
                     <div className="relative">
-						<input 
-						    type="file" 
-						    onChange={handleFileUpload} 
-						    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-						    // ADD .xlsx, .xls HERE:
-						    accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
-						    disabled={uploading} 
-						/>
+                        <input type="file" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" disabled={uploading} />
                         <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs flex items-center gap-2 transition-all shadow-lg hover:shadow-blue-500/20">
                             {Icons.upload} Upload Gradesheet
                         </button>
                     </div>
                 </div>
 
-                {/* GRADE GRID */}
                 <div className="bg-slate-900/80 backdrop-blur rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center">
                         <div className="flex items-center gap-4">
@@ -536,14 +510,12 @@ const GradebookManager = () => {
                             </thead>
                             <tbody className="divide-y divide-white/5 text-xs font-bold text-slate-300">
                                 {records.map((rec, rowIndex) => {
-                                    // --- ROW SEPARATOR LOGIC ---
                                     const showBoysHeader = (rec.gender === 'MALE' && rowIndex === 0) || (rec.gender === 'MALE' && records[rowIndex-1]?.gender !== 'MALE');
                                     const showGirlsHeader = (rec.gender === 'FEMALE' && rowIndex === 0) || (rec.gender === 'FEMALE' && records[rowIndex-1]?.gender !== 'FEMALE');
                                     const colSpan = 3 + detectedHeaders.length;
 
                                     return (
                                         <React.Fragment key={rowIndex}>
-                                            {/* SEPARATOR ROWS */}
                                             {showBoysHeader && (
                                                 <tr className="bg-blue-900/30 border-y border-white/10">
                                                     <td colSpan={colSpan} className="p-3 pl-4 text-xs font-black text-blue-200 uppercase tracking-[0.2em] sticky left-0">
@@ -559,7 +531,6 @@ const GradebookManager = () => {
                                                 </tr>
                                             )}
 
-                                            {/* DATA ROW */}
                                             <tr className="hover:bg-white/5 transition-colors group">
                                                 <td className="p-4 sticky left-0 bg-[#0f172a] group-hover:bg-[#1e293b] border-r border-white/10 text-white uppercase">
                                                     {rec.studentName}
