@@ -2,6 +2,7 @@
 import { Capacitor } from '@capacitor/core';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker?url';
+import Tesseract from 'tesseract.js'; // NEW: OCR Library
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -9,133 +10,150 @@ const PROD_API_URL = import.meta.env.VITE_API_BASE_URL || '';
 const isNative = Capacitor.isNativePlatform();
 const API_URL = `${isNative ? PROD_API_URL : ''}/api/gemini`;
 
-// --- CONFIGURATION ---
 const EXCLUDED_TERMS = [
     'PARENT', 'TEACHER', 'ADVISER', 'CHECKED BY', 'ATTESTED', 'PRINCIPAL', 
     'DATE', 'LPT', 'MA-ELM', 'PHD', 'EDD', 'GUIDANCE', 'COORDINATOR', 
     'SIGNATURE', 'APPROVED', 'SUBMITTED', 'DEPARTMENT',
-    'MEAN', 'MPS', 'TOTAL', 'MALE', 'FEMALE' 
+    'MEAN', 'MPS', 'TOTAL', 'MALE', 'FEMALE', 'QUARTER' 
 ];
 
 const LINES_PER_CHUNK = 10; 
 
-// --- 1. POWERFUL SPATIAL HEADER DETECTOR ---
-// This uses pure geometry, not AI, to find headers.
+// --- 1. OCR ENGINE (For Image-Based PDFs) ---
+const performOCR = async (pdfPage) => {
+    // Render PDF page to high-res canvas
+    const viewport = pdfPage.getViewport({ scale: 2.5 }); // High scale for better OCR
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    await pdfPage.render({ canvasContext: ctx, viewport: viewport }).promise;
+    const imageBlob = canvas.toDataURL('image/png');
+
+    // Run Tesseract
+    const result = await Tesseract.recognize(imageBlob, 'eng', {
+        logger: m => {} // Silence logs
+    });
+
+    // Clean up to save memory
+    canvas.width = 0;
+    canvas.height = 0;
+
+    return result.data.lines.map(line => {
+        // Normalize OCR output to match our Spatial format
+        // Tesseract doesn't give columns, so we just return the line text.
+        // We might lose column strictness, but Gemma is smart enough to handle spaced numbers.
+        return line.text.trim();
+    });
+};
+
+// --- 2. SPATIAL HEADER DETECTOR ---
 const detectHeadersSpatially = async (pdfDoc) => {
     try {
         const page = await pdfDoc.getPage(1);
         const textContent = await page.getTextContent();
         
-        // 1. Find "Grade-Like" Numbers to identify columns
-        // We look for numbers between 65 and 100 that appear in the body
+        // If text content is empty, we can't use spatial detection on headers either
+        if (textContent.items.length < 10) return null;
+
         const gradeItems = textContent.items.filter(item => {
             const num = parseFloat(item.str);
-            return !isNaN(num) && num >= 65 && num <= 100 && item.transform[5] < 500; // Assuming header is above Y=500
+            return !isNaN(num) && num >= 60 && num <= 100 && item.str.length <= 6;
         });
 
-        if (gradeItems.length === 0) return []; // No grades found?
+        if (gradeItems.length < 10) return null; 
 
-        // 2. Cluster X-Coordinates (Find Column Centers)
-        const columnClusters = {};
-        gradeItems.forEach(item => {
-            const x = Math.round(item.transform[4] / 10) * 10; // Round X to nearest 10px to group columns
-            if (!columnClusters[x]) columnClusters[x] = 0;
-            columnClusters[x]++;
+        const maxGradeY = Math.max(...gradeItems.map(i => i.transform[5]));
+        const colMap = {};
+        gradeItems.forEach(i => {
+            const x = Math.round(i.transform[4] / 10) * 10;
+            if (!colMap[x]) colMap[x] = 0;
+            colMap[x]++;
         });
 
-        // Filter valid columns (must have at least 3 grades aligned vertically)
-        const validColumnXs = Object.keys(columnClusters)
-            .filter(x => columnClusters[x] > 3)
-            .map(Number)
-            .sort((a, b) => a - b); // Sort Left to Right
+        const validCols = Object.keys(colMap).filter(x => colMap[x] > 5).map(Number).sort((a, b) => a - b);
+        const detectedHeaders = [];
+        const items = textContent.items;
 
-        // 3. Find Headers aligned with these X-Coords
-        const headers = [];
-        
-        // We look at the top part of the page (Y > max grade Y)
-        const headerItems = textContent.items.filter(item => item.transform[5] > 300); // Adjust Y threshold if needed
+        validCols.forEach(colX => {
+            const candidates = items.filter(item => {
+                const itemY = item.transform[5];
+                const itemX = item.transform[4];
+                return (itemY > maxGradeY && itemY < maxGradeY + 200 && Math.abs(itemX - colX) < 30);
+            });
 
-        validColumnXs.forEach(colX => {
-            // Find the text item closest to this column's X
-            // We give a tolerance of +/- 20px
-            const match = headerItems.find(hItem => Math.abs(hItem.transform[4] - colX) < 25);
-            
-            if (match) {
-                // Clean the header text (remove "7", punctuation)
-                let cleanHeader = match.str.replace(/[^a-zA-Z\s]/g, '').trim();
-                // If empty or just "A", might be part of "MAPEH: Arts", try to keep context
-                if (cleanHeader.length < 2) cleanHeader = match.str; 
-                headers.push(cleanHeader);
-            } else {
-                headers.push(`Subject_${colX}`); // Placeholder if visual match fails
+            if (candidates.length > 0) {
+                candidates.sort((a, b) => a.transform[5] - b.transform[5]);
+                const bestMatch = candidates.find(c => !EXCLUDED_TERMS.some(term => c.str.toUpperCase().includes(term)) && c.str.length > 2);
+                if (bestMatch) {
+                    let h = bestMatch.str.replace(/[^a-zA-Z\s]/g, '').trim(); 
+                    if (h.length > 1) detectedHeaders.push(h);
+                }
             }
         });
 
-        // Filter out obvious non-subjects or duplicates
-        const uniqueHeaders = [...new Set(headers.filter(h => h.length > 2 && !h.includes("QUARTER")))];
-        
-        // Safety Fallback: If spatial fails (returns 0 or 1), use default list
-        if (uniqueHeaders.length < 4) return null;
+        const unique = [...new Set(detectedHeaders)];
+        return unique.length >= 3 ? unique : null;
 
-        return uniqueHeaders;
-
-    } catch (error) {
-        console.warn("Spatial header detection failed:", error);
+    } catch (e) {
         return null;
     }
 };
 
-// --- 2. TEXT EXTRACTOR WITH DETERMINISTIC GENDER ---
+// --- 3. HYBRID TEXT EXTRACTOR (TEXT + OCR) ---
 const extractPreTaggedLines = async (pdfDoc) => {
     const allLines = [];
-    let currentGender = 'MALE'; // Start assuming Boys
+    let currentGender = 'MALE'; 
 
     for (let i = 1; i <= pdfDoc.numPages; i++) {
         const page = await pdfDoc.getPage(i);
         const textContent = await page.getTextContent();
         
-        // Group by Y (Rows)
-        const rows = {};
-        textContent.items.forEach(item => {
-            const y = Math.round(item.transform[5] / 4) * 4; 
-            if (!rows[y]) rows[y] = [];
-            rows[y].push({ x: item.transform[4], str: item.str.trim() });
-        });
+        let linesToProcess = [];
 
-        // Sort Rows (Top to Bottom)
-        const sortedY = Object.keys(rows).sort((a, b) => b - a);
-        
-        sortedY.forEach(y => {
-            const rowItems = rows[y].sort((a, b) => a.x - b.x);
-            const lineText = rowItems.map(item => item.str).join(' | '); 
+        // CHECK: Is this page an image? (Empty text layer)
+        if (textContent.items.length < 5) {
+            console.log(`⚠️ Page ${i} appears to be an image. Running OCR... (This may take a moment)`);
+            linesToProcess = await performOCR(page);
+        } else {
+            // Standard Spatial Extraction (Faster)
+            const rows = {};
+            textContent.items.forEach(item => {
+                const y = Math.round(item.transform[5] / 4) * 4; 
+                if (!rows[y]) rows[y] = [];
+                rows[y].push({ x: item.transform[4], str: item.str.trim() });
+            });
+            const sortedY = Object.keys(rows).sort((a, b) => b - a);
+            linesToProcess = sortedY.map(y => {
+                const rowItems = rows[y].sort((a, b) => a.x - b.x);
+                return rowItems.map(item => item.str).join(' | '); 
+            });
+        }
+
+        // Process Lines
+        linesToProcess.forEach(lineText => {
             const upperLine = lineText.toUpperCase();
 
-            // --- STRICT GENDER SWITCH ---
-            // If the row contains ONLY "GIRLS" or "FEMALE" (ignoring "MA-ELM" suffix in signatures)
-            // Or if "GIRLS" appears as a distinct column
-            const isGenderHeader = rowItems.some(item => 
-                (item.str.toUpperCase() === 'GIRLS' || item.str.toUpperCase() === 'FEMALE')
-            );
-
-            if (isGenderHeader) {
+            // Gender Switch
+            if (upperLine.includes('GIRLS') || (upperLine.includes('FEMALE') && !upperLine.includes('MA-ELM'))) {
                 currentGender = 'FEMALE';
-                return; // Don't add the header itself to data
+                return;
             }
             
             // Exclude Noise
             const isNoise = EXCLUDED_TERMS.some(term => upperLine.includes(term));
             
-            // Add Data
+            // Heuristic: Must contain a name-like structure or numbers
             if (!isNoise && lineText.length > 5) {
                 allLines.push(`[GENDER:${currentGender}] ${lineText}`);
             }
         });
     }
-    
     return allLines;
 };
 
-// --- 3. MICRO-CHUNK WORKER ---
+// --- 4. MICRO-CHUNK WORKER ---
 const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
     try {
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -146,22 +164,21 @@ const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
                     body: JSON.stringify({
                         model: "gemma-3-27b-it", 
                         prompt: `
-                        You are a strict data parser.
+                        Strict Data Extraction.
                         
                         **INPUT:**
                         "[GENDER:MALE] 1. LASTNAME, FIRSTNAME | Grade1 | Grade2..."
                         
-                        **COLUMN MAP (1st number -> 1st Subject):**
-                        ${JSON.stringify(knownHeaders)}
+                        **HEADERS:** ${JSON.stringify(knownHeaders)}
                         
                         **TASK:**
                         1. Extract Name (remove numbers).
                         2. Use [GENDER] tag.
-                        3. Map grades strictly by position. The first number found is ${knownHeaders[0]}, the second is ${knownHeaders[1]}, etc.
+                        3. Map numbers to headers sequentially.
                         
                         **OUTPUT:**
-                        JSON Array ONLY. No markdown.
-                        [{"name": "...", "gender": "...", "grades": {...}, "average": "..."}]
+                        JSON Array ONLY.
+                        [{"name":"...", "gender":"...", "grades":{...}, "average":"..."}]
 
                         **TEXT:**
                         ${chunkText}
@@ -172,14 +189,13 @@ const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
                 if (!response.ok) throw new Error(`Status ${response.status}`);
                 const data = await response.json();
                 let clean = data.text.replace(/```json|```/g, '').trim();
-                const start = clean.indexOf('[');
-                const end = clean.lastIndexOf(']');
-                if (start !== -1) clean = clean.substring(start, end + 1);
+                const s = clean.indexOf('['); const e = clean.lastIndexOf(']');
+                if (s !== -1 && e !== -1) clean = clean.substring(s, e + 1);
                 return JSON.parse(clean);
 
             } catch (err) {
                 if (attempt === 2) throw err;
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 1500));
             }
         }
     } catch (e) {
@@ -188,28 +204,26 @@ const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
     }
 };
 
-// --- MAIN ORCHESTRATOR ---
+// --- MAIN ---
 export const parseCumulativeGrades = async (file) => {
     console.log("📄 Reading PDF...");
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    // 1. SPATIAL HEADER DETECTION (The "Powerful" Way)
-    console.log("📐 Calculating Geometry...");
+    // 1. Headers
+    console.log("📐 Calculating Headers...");
     let headers = await detectHeadersSpatially(pdfDoc);
-    
     if (!headers) {
-        console.log("⚠️ Spatial detection uncertain, falling back to defaults.");
-        // Standard DepEd Order Fallback
+        console.log("Using Default Headers (OCR/Fallback)");
         headers = ["Filipino", "English", "Mathematics", "Science", "Aral Pan", "TLE", "MAPEH", "EsP"];
     }
-    console.log("✅ Headers Locked:", headers);
+    console.log("✅ Headers:", headers);
 
-    // 2. EXTRACT TEXT & GENDER
+    // 2. Extract Lines (Text OR OCR)
     const allLines = await extractPreTaggedLines(pdfDoc);
-    console.log(`📝 Extracted ${allLines.length} student lines.`);
+    console.log(`📝 Extracted ${allLines.length} lines.`);
 
-    // 3. CHUNK & PROCESS
+    // 3. Process
     const chunks = [];
     for (let i = 0; i < allLines.length; i += LINES_PER_CHUNK) {
         chunks.push(allLines.slice(i, i + LINES_PER_CHUNK).join('\n'));
@@ -218,15 +232,13 @@ export const parseCumulativeGrades = async (file) => {
     let allRecords = [];
     for (let i = 0; i < chunks.length; i++) {
         if (chunks[i].length < 20) continue;
-        console.log(`⚡ Processing Chunk ${i + 1}/${chunks.length}...`);
-        
+        console.log(`Processing Chunk ${i + 1}/${chunks.length}...`);
         const records = await processChunkWithGemma(chunks[i], i, headers);
         if (Array.isArray(records)) allRecords = [...allRecords, ...records];
-        
         await new Promise(r => setTimeout(r, 300));
     }
 
-    // 4. DEDUPLICATE
+    // 4. Deduplicate
     const uniqueMap = new Map();
     allRecords.forEach(r => {
         if(r.name && r.name.length > 3) {
@@ -236,7 +248,7 @@ export const parseCumulativeGrades = async (file) => {
     });
 
     return {
-        meta: { headers: headers, gradeLevel: "Detected" },
+        meta: { headers, gradeLevel: "Detected" },
         records: Array.from(uniqueMap.values())
     };
 };
