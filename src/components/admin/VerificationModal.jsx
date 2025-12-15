@@ -98,9 +98,10 @@ const EnrollmentDataSummary = ({
                     <div className="flex-1 min-w-0">
                         <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-2">
                             <h3 className="text-xl md:text-2xl font-black text-white leading-none truncate">{s.lastName}, {s.firstName}</h3>
-                            <div className="flex"><StatusBadge status={s.status} /></div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <StatusBadge status={s.status} />
+                            <span className="text-slate-600">•</span>
                             <span className="bg-white/5 px-2 py-0.5 rounded border border-white/5">{s.studentType}</span>
                             <span className="text-slate-600">•</span>
                             <span>{s.gradeLevel}</span>
@@ -110,7 +111,7 @@ const EnrollmentDataSummary = ({
 
                 {/* DESKTOP ACTIONS */}
                 {!isEditing && (
-                    <div className="hidden md:flex absolute top-6 right-6 gap-2">
+                    <div className="hidden md:flex absolute top-6 right-6 gap-2 z-20">
                         <button 
                             onClick={onGeneratePdf}
                             disabled={isPdfGenerating}
