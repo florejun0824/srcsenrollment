@@ -1,18 +1,84 @@
+// src/utils/Icons.jsx
+import React from 'react';
+import { 
+    LayoutDashboard, 
+    FolderOpen, 
+    UsersRound, 
+    Layers, 
+    BarChart3, 
+    LogOut, 
+    Search, 
+    CheckCircle2, 
+    XCircle, 
+    AlertTriangle, 
+    Home, 
+    HeartHandshake, 
+    GraduationCap, 
+    Eye, 
+    Download, 
+    Trash2, 
+    UploadCloud, 
+    Plus, 
+    TrendingUp, 
+    ArrowRightLeft, 
+    ArrowLeft, 
+    Menu, 
+    Filter,
+    FileText,
+    CalendarDays
+} from 'lucide-react';
+
+// We use a standard size class "w-5 h-5" to match your previous sizing constraints.
+// Lucide icons inherit color automatically (currentColor).
+
 export const Icons = {
-    menu: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>,
-    dashboard: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>,
-    users: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
-    folder: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>,
-    logout: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
-	analytics: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" /></svg>,
-    search: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
-    check: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>,
-    x: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>,
-    eye: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
-    download: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
-    trash: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-    bell: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
-    sections: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>,
-    promote: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
-    transfer: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+    // Navigation & System
+    menu: <Menu className="w-6 h-6" />,
+    dashboard: <LayoutDashboard className="w-5 h-5" />,
+    folder: <FolderOpen className="w-5 h-5" />,
+    users: <UsersRound className="w-5 h-5" />,
+    sections: <Layers className="w-5 h-5" />,
+    analytics: <BarChart3 className="w-5 h-5" />,
+    logout: <LogOut className="w-5 h-5" />,
+    
+    // Actions & Status
+    search: <Search className="w-4 h-4" />,
+    check: <CheckCircle2 className="w-5 h-5" />,
+    x: <XCircle className="w-5 h-5" />,
+    alert: <AlertTriangle className="w-5 h-5" />,
+    filter: <Filter className="w-4 h-4" />,
+    
+    // Student & Form
+    home: <Home className="w-5 h-5" />,
+    family: <HeartHandshake className="w-5 h-5" />, // Represents Parents/Guardians better
+    school: <GraduationCap className="w-5 h-5" />,
+    calendar: <CalendarDays className="w-5 h-5" />,
+    document: <FileText className="w-5 h-5" />,
+    
+    // Utils
+    eye: <Eye className="w-4 h-4" />,
+    download: <Download className="w-4 h-4" />,
+    trash: <Trash2 className="w-4 h-4" />,
+    upload: <UploadCloud className="w-5 h-5" />,
+    plus: <Plus className="w-4 h-4" />,
+    promote: <TrendingUp className="w-4 h-4" />, // Growth symbol for promotion
+    transfer: <ArrowRightLeft className="w-4 h-4" />,
+    arrowLeft: <ArrowLeft className="w-4 h-4" />,
+    chart: <BarChart3 className="w-5 h-5" />,
+
+    // Custom Gender Icons (Styled to match Lucide: 2px stroke, round caps)
+    male: (
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="10" cy="14" r="5" />
+            <path d="M13.5 10.5 L20 4" />
+            <path d="M15 4 h5 v5" />
+        </svg>
+    ),
+    female: (
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="10" r="5" />
+            <path d="M12 15 v7" />
+            <path d="M9 19 h6" />
+        </svg>
+    )
 };
