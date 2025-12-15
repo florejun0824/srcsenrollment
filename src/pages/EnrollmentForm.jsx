@@ -1,11 +1,12 @@
 // src/pages/EnrollmentForm.jsx
 import { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
+import ReCAPTCHA from "react-google-recaptcha";
 
 // ==========================================
-// 1. ICONS (SVG) - Minimalist White Stroke
+// 1. ICONS (SVG)
 // ==========================================
 const Icons = {
     user: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
@@ -22,12 +23,11 @@ const Icons = {
 };
 
 // ==========================================
-// 2. REUSABLE UI COMPONENTS (Dark Mode)
+// 2. REUSABLE UI COMPONENTS
 // ==========================================
 
-const InputGroup = ({ label, name, value, onChange, type = "text", required = false, placeholder = "", width = "col-span-1", disabled = false }) => (
+const InputGroup = ({ label, name, value, onChange, type = "text", required = false, placeholder = "", width = "col-span-1", disabled = false, pattern, errorMessage }) => (
     <div className={`flex flex-col ${width} group relative`}>
-        {/* UPDATED: Lighter label color (text-slate-300) and brighter asterisk (text-red-400) */}
         <label className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2 ml-1 group-focus-within:text-red-400 transition-colors">
             {label} {required && <span className="text-red-400">*</span>}
         </label>
@@ -39,12 +39,17 @@ const InputGroup = ({ label, name, value, onChange, type = "text", required = fa
             required={required && !disabled}
             disabled={disabled}
             placeholder={placeholder}
+            pattern={pattern}
             className={`w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-3.5 
             focus:bg-white/10 focus:ring-2 focus:ring-red-500/50 focus:border-red-500 
             hover:border-white/20 transition-all duration-300 outline-none shadow-inner
             placeholder:text-slate-600 placeholder:text-xs placeholder:uppercase placeholder:font-bold
+            invalid:border-red-500/50 invalid:text-red-200
             ${disabled ? 'opacity-50 cursor-not-allowed bg-black/20' : ''}`}
         />
+        {errorMessage && (
+            <span className="hidden peer-invalid:block text-[10px] text-red-400 mt-1">{errorMessage}</span>
+        )}
     </div>
 );
 
@@ -52,7 +57,7 @@ const RadioButton = ({ name, value, label, checked, onChange }) => (
     <label className={`relative flex items-center justify-center p-3.5 rounded-xl border cursor-pointer transition-all duration-300 flex-1 
         ${checked 
             ? 'border-red-500 bg-red-900/40 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]' 
-            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/20' // UPDATED: text-slate-300 when unchecked
+            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/20' 
         }`}>
         <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
         <span className="text-xs font-bold uppercase tracking-wide">{label}</span>
@@ -74,7 +79,6 @@ const SectionHeader = ({ title, icon }) => (
     </div>
 );
 
-// --- FILE UPLOAD COMPONENT ---
 const FileUploadGroup = ({ label, onUploadComplete, onRemove, required = false, existingUrl }) => {
     const [uploading, setUploading] = useState(false);
     const [preview, setPreview] = useState(existingUrl || null);
@@ -140,7 +144,6 @@ const FileUploadGroup = ({ label, onUploadComplete, onRemove, required = false, 
 
     return (
         <div className="flex flex-col md:col-span-2 group">
-            {/* UPDATED: Lighter label color (text-slate-300) and brighter asterisk (text-red-400) */}
             <label className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2 ml-1">
                 {label} {required && <span className="text-red-400">*</span>}
             </label>
@@ -199,7 +202,6 @@ const EnrollmentSettings = ({ data, handleChange, schoolYearOptions, ageRule, ag
         <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-8">Enrollment Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="col-span-1">
-                {/* UPDATED: Lighter label */}
                 <label className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2 block">School Year</label>
                 <div className="relative group">
                     <select name="schoolYear" value={data.schoolYear} onChange={handleChange} className="w-full font-bold text-white bg-white/5 border border-white/10 rounded-xl p-4 focus:ring-2 focus:ring-red-500/50 focus:border-red-500 outline-none appearance-none cursor-pointer transition-all">
@@ -210,7 +212,6 @@ const EnrollmentSettings = ({ data, handleChange, schoolYearOptions, ageRule, ag
             </div>
 
             <div className="col-span-1 lg:col-span-1">
-                 {/* UPDATED: Lighter label */}
                 <label className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2 block">Grade Level</label>
                 <div className="relative group">
                     <select name="gradeLevel" value={data.gradeLevel} onChange={handleChange} required className="w-full font-bold text-white bg-white/5 border-2 border-amber-500/50 rounded-xl p-4 focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 outline-none appearance-none shadow-sm cursor-pointer transition-all">
@@ -229,7 +230,6 @@ const EnrollmentSettings = ({ data, handleChange, schoolYearOptions, ageRule, ag
             </div>
 
             <div className="col-span-1">
-                 {/* UPDATED: Lighter label */}
                 <label className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2 block">Student Type</label>
                 <div className="grid grid-cols-2 gap-3">
                     {['New', 'Old', 'Transferee', 'Returning'].map((type) => (
@@ -239,7 +239,6 @@ const EnrollmentSettings = ({ data, handleChange, schoolYearOptions, ageRule, ag
             </div>
 
             <div className="col-span-1">
-                 {/* UPDATED: Lighter label */}
                 <label className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2 block">LRN Status</label>
                 <div className="flex gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
                     {['With LRN', 'No LRN'].map((status) => (
@@ -267,12 +266,10 @@ const StudentProfile = ({ data, handleChange, onPhotoUpload, onPhotoRemove, onPs
                 
                 {/* --- DOCUMENTS UPLOAD SECTION --- */}
                 <div className="md:col-span-4 bg-white/5 rounded-2xl p-6 md:p-8 border border-white/5 mb-4">
-                    {/* UPDATED: Lighter label */}
                     <h4 className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-6 flex items-center gap-2">
                         {Icons.upload} Documents (Optional)
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* 1. ID Photo - UPDATED: Removed required={true} */}
                         <FileUploadGroup 
                             label="Student 2x2 ID Photo" 
                             onUploadComplete={onPhotoUpload} 
@@ -281,7 +278,6 @@ const StudentProfile = ({ data, handleChange, onPhotoUpload, onPhotoRemove, onPs
                             existingUrl={data.studentPhotoUrl} 
                         />
                         
-                        {/* 2. PSA Birth Certificate */}
                         <div className="flex flex-col gap-4 md:col-span-2 lg:col-span-1">
                             <FileUploadGroup 
                                 label="Scanned PSA Birth Certificate (Page 1)" 
@@ -314,10 +310,10 @@ const StudentProfile = ({ data, handleChange, onPhotoUpload, onPhotoRemove, onPs
                     </div>
                 </div>
 
-                {/* --- TEXT INPUTS --- */}
                 <InputGroup label="PSA Birth Certificate No." name="psaCert" value={data.psaCert} onChange={handleChange} width="md:col-span-2" />
                 <InputGroup label="Learner Reference No. (LRN)" name="lrn" value={data.lrn} onChange={handleChange} width="md:col-span-2" placeholder="12-digit number" />
                 
+                {/* SPAM PREVENTION: Use pattern to block numbers but ALLOW enye, hyphen, space, dot, comma */}
                 <InputGroup label="Last Name" name="lastName" value={data.lastName} onChange={handleChange} required width="md:col-span-1" />
                 <InputGroup label="First Name" name="firstName" value={data.firstName} onChange={handleChange} required width="md:col-span-1" />
                 <InputGroup label="Middle Name" name="middleName" value={data.middleName} onChange={handleChange} width="md:col-span-1" />
@@ -326,7 +322,6 @@ const StudentProfile = ({ data, handleChange, onPhotoUpload, onPhotoRemove, onPs
                 <InputGroup label="Date of Birth" name="dob" type="date" value={data.dob} onChange={handleChange} required width="md:col-span-1" />
                 
                 <div className="md:col-span-1">
-                     {/* UPDATED: Lighter label */}
                     <label className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2 ml-1 block">Sex</label>
                     <div className="flex gap-3">
                         <RadioButton name="sex" value="Male" label="Male" checked={data.sex === 'Male'} onChange={handleChange} />
@@ -339,7 +334,6 @@ const StudentProfile = ({ data, handleChange, onPhotoUpload, onPhotoRemove, onPs
                 
                 <div className="md:col-span-4 bg-gradient-to-r from-white/5 to-transparent rounded-xl p-5 border border-white/5 flex flex-col md:flex-row md:items-center gap-6">
                     <div className="flex-shrink-0">
-                         {/* UPDATED: Lighter label */}
                         <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Belong to Indigenous People (IP)?</span>
                     </div>
                     <div className="flex gap-4">
@@ -395,7 +389,16 @@ const ParentInfo = ({ data, handleChange }) => (
             <InputGroup label="Guardian's Name" name="guardianName" value={data.guardianName} onChange={handleChange} placeholder="IF APPLICABLE" />
             
             <div className="grid grid-cols-2 gap-4">
-                <InputGroup label="Mobile No. 1" name="contactNumber1" value={data.contactNumber1} onChange={handleChange} type="tel" required placeholder="Required" />
+                <InputGroup 
+                    label="Mobile No. 1" 
+                    name="contactNumber1" 
+                    value={data.contactNumber1} 
+                    onChange={handleChange} 
+                    type="tel" 
+                    required 
+                    placeholder="09XXXXXXXXX"
+                    pattern="^09\d{9}$" // Regex: Starts with 09, followed by 9 digits
+                />
                 <InputGroup label="Mobile No. 2" name="contactNumber2" value={data.contactNumber2} onChange={handleChange} type="tel" placeholder="Optional" />
             </div>
         </div>
@@ -431,7 +434,6 @@ const SHSDetails = ({ data, handleChange, isTrackDisabled, showStrand }) => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div>
-                         {/* UPDATED: Lighter label */}
                         <label className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-3 block">Semester</label>
                         <div className="flex gap-3">
                             <RadioButton name="semester" value="1ST SEMESTER" label="1st Sem" checked={data.semester === '1ST SEMESTER'} onChange={handleChange} />
@@ -457,10 +459,12 @@ const EnrollmentForm = () => {
     
     // Modal States
     const [showReview, setShowReview] = useState(false);
-    const [showDuplicate, setShowDuplicate] = useState(false);
     
+    // Use this to check editing mode, though public users likely won't have an ID
     const [existingId, setExistingId] = useState(null);
-    const [tempDuplicateData, setTempDuplicateData] = useState(null);
+
+    // SECURITY: reCAPTCHA Token
+    const [captchaToken, setCaptchaToken] = useState(null);
 
     // Config
     const currentYear = new Date().getFullYear();
@@ -487,7 +491,11 @@ const EnrollmentForm = () => {
         semester: '', track: '', strand: '',
         studentPhotoUrl: '', 
         psaScanUrl: '',
-        psaScanUrl2: '' 
+        psaScanUrl2: '',
+        status: 'Pending',
+        
+        // SECURITY: HONEYPOT FIELD (Hidden from humans)
+        website_url: '' 
     });
 
     // Derived Logic
@@ -532,13 +540,23 @@ const EnrollmentForm = () => {
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         
+        // SECURITY: Block suspicious characters in names immediately (Strict Input)
+        if (['lastName', 'firstName', 'middleName', 'fatherName', 'motherName'].includes(name)) {
+             // Regex: Only allows letters, spaces, dashes, apostrophes, commas, AND ENYE (ñ/Ñ).
+             // Matches anything that is NOT in this allowed list.
+            if (/[^a-zA-Z\s\-\.\'\,ñÑ]/.test(value)) {
+                return; // Ignore keypress if invalid
+            }
+        }
+        
         let finalValue = value;
         if (typeof value === 'string' && 
             type !== 'date' && 
             type !== 'password' && 
             type !== 'email' && 
             type !== 'radio' && 
-            type !== 'select-one') {
+            type !== 'select-one' &&
+            name !== 'website_url') { // Don't capitalize honeypot
             finalValue = value.toUpperCase();
         }
 
@@ -562,12 +580,14 @@ const EnrollmentForm = () => {
         else setData(prev => ({ ...prev, psaScanUrl2: '' }));
     };
 
-    // UPDATED VALIDATION: Removed check for studentPhotoUrl
     const isFormValid = () => {
         if (ageError) return false;
-        // Required fields check (photos are removed from this list)
         if (!data.gradeLevel || !data.lastName || !data.firstName || !data.dob || !data.fatherName || !data.motherName || !data.contactNumber1) return false;
         
+        // SECURITY: Validate Phone Number Format (11 digits)
+        const phoneRegex = /^09\d{9}$/;
+        if (!phoneRegex.test(data.contactNumber1)) return false;
+
         if (showPrevSchool && (!data.lastSchoolName || !data.lastSchoolAddress)) return false;
         return true;
     };
@@ -578,62 +598,72 @@ const EnrollmentForm = () => {
     }, [isTrackDisabled, showStrand, data.strand]);
 
     // Submission Logic
-    const handleInitialSubmit = async (e) => {
+    const handleInitialSubmit = (e) => {
         e.preventDefault();
-        if (!isFormValid()) return;
 
-        if (!existingId) {
-            setLoading(true);
-            const q = query(collection(db, "enrollments"),
-                where("lastName", "==", data.lastName),
-                where("firstName", "==", data.firstName),
-                where("dob", "==", data.dob)
-            );
-
-            try {
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const docSnap = querySnapshot.docs[0];
-                    setTempDuplicateData({ ...docSnap.data(), id: docSnap.id });
-                    setShowDuplicate(true);
-                    setLoading(false);
-                    return;
-                }
-            } catch (error) {
-                console.error("Error:", error);
-                alert("Connection error checking records.");
-                setLoading(false);
-                return;
-            }
-            setLoading(false);
+        // SECURITY 1: HONEYPOT CHECK
+        // If the hidden field has value, it's a bot.
+        if (data.website_url !== "") {
+            console.warn("Bot detected via Honeypot");
+            return; // Silently fail (don't alert the bot)
         }
+        
+        // SECURITY 2: Check ReCAPTCHA
+        if (!captchaToken && !existingId) { // Only check captcha for new enrollments
+            alert("Please complete the 'I am not a robot' verification.");
+            return;
+        }
+
+        if (!isFormValid()) {
+            alert("Please fix errors in the form (e.g., Invalid Phone Number)");
+            return;
+        }
+        
         setShowReview(true);
-    };
-
-    const handleRetrieveDuplicate = () => {
-        if (tempDuplicateData) {
-            setData(tempDuplicateData);
-            setExistingId(tempDuplicateData.id);
-            setShowDuplicate(false);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
     };
 
     const handleFinalSubmit = async () => {
         setLoading(true);
         try {
+            // Remove the honeypot field from the data to be sent to Firestore
+            const { website_url, ...submissionData } = data;
+
             if (existingId) {
+                // UPDATE EXISTING RECORD (Admin only)
                 const docRef = doc(db, "enrollments", existingId);
-                await updateDoc(docRef, { ...data, updatedAt: new Date() });
+                await updateDoc(docRef, { ...submissionData, updatedAt: new Date() });
             } else {
-                await addDoc(collection(db, "enrollments"), { ...data, createdAt: new Date() });
+                // --- ROBUST ID GENERATION ---
+                const cleanStr = (str) => {
+                    return str && str.toString()
+                        .toUpperCase()
+                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Normalizes Ñ -> N, é -> e (safe for ID generation)
+                        .replace(/[^A-Z0-9\s]/g, '') // Remove non-alphanumeric chars
+                        .trim()
+                        .replace(/\s+/g, '-'); // Replace spaces with dashes
+                };
+
+                // Generate Natural Key: LASTNAME-FIRSTNAME-DOB
+                const uniqueId = `${cleanStr(data.lastName)}-${cleanStr(data.firstName)}-${data.dob}`;
+                
+                // Try to save
+                await setDoc(doc(db, "enrollments", uniqueId), { 
+                    ...submissionData, 
+                    createdAt: new Date(),
+                    status: 'Pending'
+                });
             }
             setShowReview(false);
             setSubmitted(true);
             window.scrollTo(0, 0);
         } catch (error) {
-            console.error(error);
-            alert("Error submitting form.");
+            console.error("Submission Error:", error);
+            
+            if (error.code === 'permission-denied') {
+                alert("Submission Failed: It appears this student is already enrolled. Please contact the Registrar.");
+            } else {
+                alert("Error submitting form. Please check your internet connection.");
+            }
         }
         setLoading(false);
     };
@@ -680,15 +710,6 @@ const EnrollmentForm = () => {
     return (
         <div className="min-h-screen bg-[#020617] font-sans text-slate-300 pb-20 relative selection:bg-red-500 selection:text-white">
 
-            {/* MODALS */}
-            {showDuplicate && (
-                <DuplicateModal
-                    studentName={`${data.firstName} ${data.lastName}`}
-                    onCancel={() => setShowDuplicate(false)}
-                    onRetrieve={handleRetrieveDuplicate}
-                />
-            )}
-
             {showReview && (
                 <ReviewModal
                     data={data}
@@ -727,6 +748,21 @@ const EnrollmentForm = () => {
             {/* FORM CONTAINER */}
             <div className="max-w-5xl mx-auto px-4 relative z-20">
                 <form onSubmit={handleInitialSubmit} className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-6 md:p-12 shadow-2xl">
+
+                    {/* SECURITY: HONEYPOT (Hidden Input) */}
+                    {/* Bots will fill this, Humans won't see it. If filled, we block. */}
+                    <div className="opacity-0 absolute -z-10 top-0 left-0 h-0 w-0 overflow-hidden">
+                         <label htmlFor="website_url">Website</label>
+                         <input 
+                             type="text" 
+                             name="website_url" 
+                             id="website_url" 
+                             value={data.website_url}
+                             onChange={handleChange}
+                             tabIndex="-1" 
+                             autoComplete="off"
+                         />
+                    </div>
 
                     <EnrollmentSettings 
                         data={data} 
@@ -771,13 +807,22 @@ const EnrollmentForm = () => {
                     {/* SUBMIT SECTION */}
                     <div className="bg-white/5 rounded-[2rem] p-8 md:p-12 border border-white/5 shadow-2xl mt-12 mb-4">
                         <div className="mb-10 text-center">
-                             {/* UPDATED: Lighter label */}
                             <label className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-6 block">Printed Parent/Guardian Name</label>
                             <div className="flex flex-wrap justify-center gap-4">
                                 <RadioButton name="signatory" value="Father" label="Father" checked={data.signatory === 'Father'} onChange={handleChange} />
                                 <RadioButton name="signatory" value="Mother" label="Mother" checked={data.signatory === 'Mother'} onChange={handleChange} />
                                 <RadioButton name="signatory" value="Guardian" label="Guardian" checked={data.signatory === 'Guardian'} onChange={handleChange} />
                             </div>
+                        </div>
+
+                        {/* SECURITY: RECAPTCHA WIDGET */}
+                        {/* Go to https://www.google.com/recaptcha/admin to get your SITE KEY (v2 Checkbox) */}
+                        <div className="flex justify-center mb-8">
+                            <ReCAPTCHA
+                                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                                onChange={(token) => setCaptchaToken(token)}
+                                theme="dark"
+                            />
                         </div>
 
                         <button
@@ -815,30 +860,6 @@ const EnrollmentForm = () => {
     );
 };
 
-// --- MODALS (Dark Theme) ---
-const DuplicateModal = ({ onRetrieve, onCancel, studentName }) => (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-        <div className="bg-slate-900 rounded-3xl w-full max-w-sm shadow-2xl p-8 text-center border border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-cyan-500"></div>
-            <div className="w-16 h-16 bg-blue-500/10 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_20px_rgba(59,130,246,0.2)] border border-blue-500/20">
-                {Icons.alert}
-            </div>
-            <h2 className="text-xl font-black text-white mb-2">Record Found!</h2>
-            <p className="text-sm text-slate-400 mb-8 leading-relaxed font-medium">
-                We found an existing student named <br/><strong className="text-white text-lg">{studentName}</strong>.
-            </p>
-            <div className="flex flex-col gap-3">
-                <button onClick={onRetrieve} className="w-full py-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/30 transition-all hover:-translate-y-0.5">
-                    Retrieve & Update Record
-                </button>
-                <button onClick={onCancel} className="w-full py-4 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    </div>
-);
-
 const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
     const DataRow = ({ label, value }) => (
         <div className="flex flex-col sm:flex-row sm:justify-between border-b border-white/5 py-3 last:border-0 hover:bg-white/5 px-2 rounded-lg transition-colors">
@@ -867,6 +888,19 @@ const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
                 {/* Content */}
                 <div className="p-8 overflow-y-auto space-y-8 custom-scrollbar bg-slate-900/50">
                     <div className="space-y-6">
+                        {/* WARNING NOTICE: ADDED AS REQUESTED */}
+                        <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex items-start gap-3">
+                            <span className="text-2xl">⚠️</span>
+                            <div>
+                                <h4 className="text-amber-400 font-black text-xs uppercase mb-1">Final Review Required</h4>
+                                <p className="text-amber-200/80 text-[11px] leading-relaxed">
+                                    Please double-check all information below. 
+                                    <strong className="text-amber-100"> Once submitted, you cannot edit these details </strong> 
+                                    unless you visit the Registrar's Office.
+                                </p>
+                            </div>
+                        </div>
+
                         <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
                             <h4 className="text-red-400 font-bold uppercase text-[10px] tracking-widest mb-3 flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Enrollment Details
@@ -898,7 +932,7 @@ const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
                         </div>
                     </div>
 
-                    <div className="bg-amber-900/20 p-4 rounded-xl border border-amber-500/20 text-xs text-amber-200 text-center leading-relaxed font-medium">
+                    <div className="bg-red-900/20 p-4 rounded-xl border border-red-500/20 text-xs text-red-200 text-center leading-relaxed font-medium">
                         By clicking confirm, I hereby certify that the above information is true and correct.
                     </div>
                 </div>
