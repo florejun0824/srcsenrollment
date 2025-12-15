@@ -1,24 +1,31 @@
 // src/utils/aiGradeParser.js
 import { Capacitor } from '@capacitor/core';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// --- CONFIGURE PDF WORKER FOR VITE ---
+// This ensures the PDF worker loads correctly in production without complex config
+import pdfWorker from 'pdfjs-dist/build/pdf.worker?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 // --- API CONFIGURATION ---
-// Replicating the logic from your aiService.jsx for consistency
 const PROD_API_URL = import.meta.env.VITE_API_BASE_URL || '';
 const isNative = Capacitor.isNativePlatform();
 const API_URL = `${isNative ? PROD_API_URL : ''}/api/gemini`;
 
 /**
- * WORKER: Process a payload (Slice or Whole File)
+ * WORKER: Process a single slice
  */
-const sendToWorker = async (base64Data, mimeType, label) => {
+const sendToWorker = async (base64Data, label) => {
     try {
+        // Use Flash for speed. 
+        // We only send 'image/jpeg' because we convert everything to images first.
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: "gemma-3-27b-it", // Flash is crucial for speed
+                model: "gemma-3-27b-it", 
                 prompt: [
-                    `Analyze this ${label}.
+                    `Analyze this PARTIAL SLICE (${label}) of a grade sheet.
                      
                      TASK:
                      1. Extract all student rows visible.
@@ -28,32 +35,57 @@ const sendToWorker = async (base64Data, mimeType, label) => {
                     {
                         inlineData: {
                             data: base64Data,
-                            mimeType: mimeType,
+                            mimeType: "image/jpeg",
                         },
                     },
                 ]
             })
         });
 
-        if (!response.ok) throw new Error(`${label} failed`);
+        if (!response.ok) throw new Error(`${label} failed: ${response.statusText}`);
         
         const data = await response.json();
         const text = data.text.replace(/```json|```/g, '').trim();
         return JSON.parse(text);
 
     } catch (error) {
-        console.warn(`${label} error:`, error);
+        console.warn(`${label} warning:`, error);
         return []; 
     }
 };
 
 /**
- * SLICER: Cuts IMAGES into overlapping chunks
+ * HELPER: Convert PDF File to Array of ImageBitmaps (One per page)
  */
-const sliceImage = async (file) => {
-    const bitmap = await createImageBitmap(file);
-    const { width, height } = bitmap;
+const convertPdfToBitmaps = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const bitmaps = [];
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 }); // 2.0 scale for clear text
+        
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        
+        // Create bitmap from the rendered page
+        const bitmap = await createImageBitmap(canvas);
+        bitmaps.push(bitmap);
+    }
     
+    return bitmaps;
+};
+
+/**
+ * SLICER: Cuts a Bitmap into overlapping chunks
+ */
+const sliceBitmap = (bitmap) => {
+    const { width, height } = bitmap;
     const SLICE_HEIGHT = 1200; 
     const OVERLAP = 300; 
     
@@ -69,6 +101,7 @@ const sliceImage = async (file) => {
         canvas.height = h;
         ctx.clearRect(0, 0, width, h);
         ctx.drawImage(bitmap, 0, currentY, width, h, 0, 0, width, h);
+        
         slices.push(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
         currentY += (h - OVERLAP);
         if (currentY >= height - OVERLAP) break;
@@ -81,32 +114,38 @@ const sliceImage = async (file) => {
  * MAIN ORCHESTRATOR
  */
 export const parseCumulativeGrades = async (file) => {
-    let results = [];
+    let bitmaps = [];
 
-    // --- STRATEGY SELECTION ---
+    // 1. PREPARE IMAGE DATA
     if (file.type === 'application/pdf') {
-        // 🚨 PDF PATH: Standard Processing (No Slicing)
-        console.log("📄 PDF detected. Using Standard Processing...");
-        
-        const base64Data = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-            reader.readAsDataURL(file);
-        });
-
-        // Send whole PDF. We trust 'gemini-1.5-flash' to be fast enough.
-        results = [await sendToWorker(base64Data, 'application/pdf', 'Whole PDF')];
-        
+        console.log("📄 Processing PDF client-side...");
+        bitmaps = await convertPdfToBitmaps(file);
     } else {
-        // ⚡ IMAGE PATH: Micro-Worker Slicing
-        console.log("🖼️ Image detected. Using Micro-Worker Slicing...");
-        const slices = await sliceImage(file);
-        
-        console.log(`⚡ Dispatching ${slices.length} micro-workers...`);
-        results = await Promise.all(slices.map((s, i) => sendToWorker(s, 'image/jpeg', `Slice ${i+1}`)));
+        console.log("🖼️ Processing Image...");
+        bitmaps = [await createImageBitmap(file)];
     }
 
-    // --- MERGE & DEDUPLICATE ---
+    // 2. SLICE EVERYTHING
+    console.log(`🔪 Slicing ${bitmaps.length} page(s)...`);
+    const allSlices = [];
+    bitmaps.forEach((bmp, pageIdx) => {
+        const pageSlices = sliceBitmap(bmp);
+        pageSlices.forEach((slice, sliceIdx) => {
+            allSlices.push({
+                data: slice,
+                label: `Page ${pageIdx + 1} - Part ${sliceIdx + 1}`
+            });
+        });
+    });
+
+    console.log(`⚡ Dispatching ${allSlices.length} micro-workers...`);
+
+    // 3. PARALLEL EXECUTION (Micro-Workers)
+    const results = await Promise.all(
+        allSlices.map(item => sendToWorker(item.data, item.label))
+    );
+
+    // 4. MERGE & DEDUPLICATE
     const mergedMap = new Map();
     let metaData = {};
 
@@ -119,7 +158,6 @@ export const parseCumulativeGrades = async (file) => {
             if (!mergedMap.has(nameKey)) {
                 mergedMap.set(nameKey, record);
             } else {
-                // Keep the record with more detected grades
                 const existing = mergedMap.get(nameKey);
                 if (Object.keys(record.grades).length > Object.keys(existing.grades).length) {
                     mergedMap.set(nameKey, record);
