@@ -3,7 +3,6 @@ import { Capacitor } from '@capacitor/core';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker?url';
 
-// Configure PDF Worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const PROD_API_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -29,32 +28,32 @@ const fetchWithRetry = async (url, options, retries = 3) => {
 };
 
 /**
- * 🆕 FEATURE: Extract Raw Text from PDF to create the "Official List"
+ * TEXT EXTRACTOR (The "Truth")
  */
 const extractTextMapFromPDF = async (arrayBuffer) => {
+    // 1. Load PDF
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let extractedNames = [];
-    let currentGender = 'MALE'; // Default start
+    let currentGender = 'MALE'; 
 
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        
-        // Simple heuristic parser for the "DepEd" style sheet
         const items = textContent.items.map(item => item.str.trim()).filter(Boolean);
         
         items.forEach(text => {
-            // Detect Gender Markers
             if (text.toUpperCase().includes('BOYS')) currentGender = 'MALE';
             if (text.toUpperCase().includes('GIRLS')) currentGender = 'FEMALE';
 
-            // Detect Names (Pattern: Number, Comma, Uppercase)
-            // Regex matches: "1. LASTNAME, FIRSTNAME" or "LASTNAME, FIRSTNAME"
-            // We look for the comma and length to ensure it's a name
-            if (text.includes(',') && text.length > 5 && !text.includes('Subject') && !text.includes('Quarter')) {
-                // Cleanup: Remove leading numbers "1. "
+            // Detect Names (Pattern: "1. LASTNAME, FIRSTNAME" or just "LASTNAME, FIRSTNAME")
+            // Must contain comma, be uppercase, and long enough
+            if (text.includes(',') && text.length > 5 && /^[A-Z\s,.]+$/.test(text.replace(/[0-9]/g, ''))) {
+                // Cleanup leading numbers (e.g., "1. ")
                 const cleanName = text.replace(/^\d+\.?\s*/, '').trim().toUpperCase();
-                extractedNames.push({ name: cleanName, gender: currentGender });
+                // Exclude headers that look like names
+                if (!cleanName.includes('PARENT') && !cleanName.includes('TEACHER')) {
+                    extractedNames.push({ name: cleanName, gender: currentGender });
+                }
             }
         });
     }
@@ -62,7 +61,7 @@ const extractTextMapFromPDF = async (arrayBuffer) => {
 };
 
 /**
- * PHASE 1: HEADER SCOUT (Vision)
+ * HEADER SCOUT
  */
 const extractHeaders = async (base64Data) => {
     try {
@@ -86,18 +85,18 @@ const extractHeaders = async (base64Data) => {
 };
 
 /**
- * PHASE 2: CONTEXT-AWARE WORKER
+ * WORKER
  */
 const sendToWorker = async (base64Data, label, knownHeaders, validNamesList) => {
     try {
         const headerContext = knownHeaders 
-            ? `The columns are EXACTLY: ${JSON.stringify(knownHeaders)}.`
+            ? `The columns are: ${JSON.stringify(knownHeaders)}.`
             : `Infer headers.`;
 
-        // 🧠 INJECT THE OFFICIAL LIST
+        // 🧠 Strict Name Matching Context
         const nameContext = validNamesList.length > 0
-            ? `RESTRICTION: You are extracting grades for these specific students ONLY: ${JSON.stringify(validNamesList.map(n => n.name))}. If you see a name, map it to the closest one in this list.`
-            : `Extract names visible in the document.`;
+            ? `RESTRICTION: Extract grades ONLY for these names: ${JSON.stringify(validNamesList.map(n => n.name))}. Match fuzzy typos to this list.`
+            : `Extract visible names.`;
 
         const response = await fetchWithRetry(API_URL, {
             method: 'POST',
@@ -105,14 +104,14 @@ const sendToWorker = async (base64Data, label, knownHeaders, validNamesList) => 
             body: JSON.stringify({
                 model: "gemma-3-27b-it", 
                 prompt: [
-                    `Analyze this PARTIAL SLICE (${label}) of a grade sheet.
+                    `Analyze this PARTIAL SLICE (${label}).
                      ${headerContext}
                      ${nameContext}
                      
                      TASK:
                      1. Extract student rows.
-                     2. Return ONLY JSON array: [{"name": "EXACT_NAME_FROM_LIST", "grades": {"Math": 90}, "average": 90}]
-                     3. Do NOT invent new names. Use the provided list to correct typos.`,
+                     2. Return JSON: [{"name": "EXACT_NAME_FROM_LIST", "grades": {"Math": 90}, "average": 90}]
+                     3. IGNORE names not in the provided list.`,
                     { inlineData: { data: base64Data, mimeType: "image/jpeg" } },
                 ]
             })
@@ -133,14 +132,15 @@ export const parseCumulativeGrades = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     
     // 1. EXTRACT TEXT (The "Truth")
-    console.log("📖 Extracting text content...");
+    // FIX: Use .slice(0) to pass a COPY, preserving the original arrayBuffer
     let validStudents = [];
     if (file.type === 'application/pdf') {
-        validStudents = await extractTextMapFromPDF(arrayBuffer);
+        console.log("📖 Extracting PDF Text Layer...");
+        validStudents = await extractTextMapFromPDF(arrayBuffer.slice(0)); 
     }
-    console.log(`✅ Found ${validStudents.length} names in document text.`);
+    console.log(`✅ Found ${validStudents.length} names in text.`);
 
-    // 2. PREPARE IMAGES
+    // 2. PREPARE IMAGES (Original arrayBuffer is still valid)
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const bitmaps = [];
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -193,45 +193,39 @@ export const parseCumulativeGrades = async (file) => {
     console.log(`⚡ Processing ${allSlices.length} slices...`);
     const results = [];
     for (const slice of allSlices) {
-        // Pass 'validStudents' to the AI so it knows who to look for
         const res = await sendToWorker(slice.data, slice.label, detectedHeaders, validStudents);
         results.push(res);
         await new Promise(r => setTimeout(r, 500));
     }
 
-    // 5. RECONCILIATION
-    // We now merge the AI's "Grades" into our "Valid Student List"
+    // 5. RECONCILIATION (Text + Vision)
     const finalMap = new Map();
     
-    // Initialize map with Valid Students (Text Layer)
+    // A. Start with the "Truth" (Text Layer)
     validStudents.forEach(s => {
-        finalMap.set(s.name, { ...s, grades: {}, average: null, source: 'text' });
+        finalMap.set(s.name, { ...s, grades: {}, average: null });
     });
 
-    // Merge AI Data (Vision Layer)
+    // B. Merge AI Grades (Vision Layer)
     results.flat().forEach(aiRecord => {
         if (!aiRecord.name) return;
         const aiNameUpper = aiRecord.name.toUpperCase();
         
-        // Find best match in our valid list
+        // Match AI result to Official List
         const match = validStudents.find(s => 
             s.name.includes(aiNameUpper) || aiNameUpper.includes(s.name)
         );
 
         if (match) {
             const existing = finalMap.get(match.name);
-            // Merge grades (prefer new data if not empty)
-            const mergedGrades = { ...existing.grades, ...aiRecord.grades };
             finalMap.set(match.name, {
                 ...existing,
-                grades: mergedGrades,
+                grades: { ...existing.grades, ...aiRecord.grades }, // Merge grades
                 average: aiRecord.average || existing.average
             });
         }
     });
 
-    // Filter out names that didn't get any grades? Or keep them as empty?
-    // We'll return everything we found in the text layer.
     return {
         meta: { headers: detectedHeaders },
         records: Array.from(finalMap.values())

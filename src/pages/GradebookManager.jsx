@@ -23,7 +23,7 @@ const GradebookManager = () => {
     const [filteredSections, setFilteredSections] = useState([]);
     
     // --- VALIDATION DATA ---
-    const [enrolledStudents, setEnrolledStudents] = useState([]); // The Official Class List
+    const [enrolledStudents, setEnrolledStudents] = useState([]); 
 
     // --- GRADEBOOK STATE ---
     const [filters, setFilters] = useState({
@@ -120,8 +120,7 @@ const GradebookManager = () => {
             
             setLoading(true);
             try {
-                // A. Load Official Class List (for Validation)
-                // Note: We match primarily by Grade Level to catch section transfers/typos
+                // A. Load Official Class List (for Linking)
                 const enrollQ = query(collection(db, "enrollments"), where("gradeLevel", "==", filters.gradeLevel));
                 const enrollSnap = await getDocs(enrollQ);
                 const students = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -197,7 +196,7 @@ const GradebookManager = () => {
         setUploading(true);
         
         try {
-            // 1. Process File
+            // 1. Process File (Extracts Official List from Text + Grades from Vision)
             const { meta, records: extractedRecords } = await parseCumulativeGrades(file);
             
             // 2. Set Headers
@@ -209,42 +208,30 @@ const GradebookManager = () => {
                 setDetectedHeaders(Array.from(subjects));
             }
 
-            // 3. STRICT MATCHING LOGIC
-            const matchedRecords = [];
-            let missingCount = 0;
-
-            extractedRecords.forEach(aiRecord => {
-                // Clean AI Name
-                const aiNameClean = aiRecord.name.replace(/[^A-Z]/g, '');
+            // 3. MAP & LINK TO DATABASE
+            // We use the PDF list as the source of truth for THIS upload, 
+            // but we try to link them to the database 'enrolledStudents' for ID tracking.
+            const processedRecords = extractedRecords.map(rec => {
+                const nameClean = rec.name.replace(/[^A-Z]/g, '');
                 
-                // Find in Enrolled List (Fuzzy Match Last Name)
+                // Fuzzy Match against Firestore Enrolled List
                 const match = enrolledStudents.find(enrolled => {
                     const enrolledNameClean = `${enrolled.lastName}${enrolled.firstName}`.toUpperCase().replace(/[^A-Z]/g, '');
-                    const enrolledLastName = enrolled.lastName.toUpperCase().replace(/[^A-Z]/g, '');
-                    return aiNameClean.includes(enrolledLastName);
+                    return nameClean.includes(enrolledNameClean) || enrolledNameClean.includes(nameClean);
                 });
 
-                if (match) {
-                    matchedRecords.push({
-                        studentId: match.id,
-                        studentName: `${match.lastName}, ${match.firstName}`, // Force Official Name
-                        gender: aiRecord.gender || 'MALE',
-                        grades: aiRecord.grades,
-                        generalAverage: aiRecord.generalAverage,
-                        status: 'Unsaved'
-                    });
-                } else {
-                    missingCount++;
-                }
+                return {
+                    studentId: match ? match.id : null, // Store ID if found
+                    studentName: match ? `${match.lastName}, ${match.firstName}` : rec.name, // Prefer DB name formatting
+                    gender: rec.gender || 'MALE',
+                    grades: rec.grades,
+                    generalAverage: rec.generalAverage,
+                    isUnlinked: !match, // Flag if not found in DB
+                    status: 'Unsaved'
+                };
             });
 
-            if (matchedRecords.length === 0) {
-                alert("No students matched the enrollment list! Please check if the file matches the selected Grade Level.");
-            } else if (missingCount > 0) {
-                alert(`Processed file. ${matchedRecords.length} matched, ${missingCount} ignored (not in class list).`);
-            }
-
-            sortAndSetRecords(matchedRecords);
+            sortAndSetRecords(processedRecords);
             setIsEditing(true);
 
         } catch (error) {
@@ -261,32 +248,36 @@ const GradebookManager = () => {
         setLoading(true);
         try {
             const batch = writeBatch(db);
-            let matchedCount = 0;
+            let savedCount = 0;
 
             records.forEach(rec => {
-                if (rec.studentId) {
-                    matchedCount++;
-                    // Create Unique ID: STUDENT_ID + SY + QUARTER
-                    const docId = `${rec.studentId}_${filters.schoolYear}_${filters.quarter.replace(/\s/g, '')}`;
-                    const docRef = doc(db, "academic_records", docId);
-                    
-                    batch.set(docRef, {
-                        studentId: rec.studentId,
-                        studentName: rec.studentName,
-                        gender: rec.gender || 'MALE',
-                        gradeLevel: filters.gradeLevel,
-                        section: filters.section,
-                        quarter: filters.quarter,
-                        schoolYear: filters.schoolYear,
-                        grades: rec.grades,
-                        generalAverage: rec.generalAverage,
-                        updatedAt: new Date()
-                    });
-                }
+                // If the student isn't linked to enrollment, we create a placeholder ID
+                // Note: Unlinked students won't be able to login to Student Portal, 
+                // but teachers can still view/print their grades here.
+                const sId = rec.studentId || `UNLINKED_${rec.studentName.replace(/\s/g,'')}`;
+                
+                // Create Unique ID: STUDENT_ID + SY + QUARTER
+                const docId = `${sId}_${filters.schoolYear}_${filters.quarter.replace(/\s/g, '')}`;
+                const docRef = doc(db, "academic_records", docId);
+                
+                batch.set(docRef, {
+                    studentId: sId,
+                    studentName: rec.studentName,
+                    gender: rec.gender || 'MALE',
+                    gradeLevel: filters.gradeLevel,
+                    section: filters.section,
+                    quarter: filters.quarter,
+                    schoolYear: filters.schoolYear,
+                    grades: rec.grades,
+                    generalAverage: rec.generalAverage,
+                    isUnlinked: rec.isUnlinked || false,
+                    updatedAt: new Date()
+                });
+                savedCount++;
             });
 
             await batch.commit();
-            alert(`Successfully Saved ${matchedCount} Student Records!`);
+            alert(`Successfully Saved ${savedCount} Student Records!`);
             setIsEditing(false);
             fetchGrades(); 
         } catch (error) {
@@ -296,6 +287,7 @@ const GradebookManager = () => {
         setLoading(false);
     };
 
+    // --- BATCH DELETE ---
     const handleDeleteAll = async () => {
         if (records.length === 0) return;
         if (!confirm(`⚠️ WARNING: You are about to delete ALL ${records.length} displayed records.\n\nThis cannot be undone. Are you sure?`)) return;
@@ -306,7 +298,7 @@ const GradebookManager = () => {
             let dbDeleteCount = 0;
             
             records.forEach(r => {
-                if (r.id) { // Only delete if it exists in DB
+                if (r.id) { // Only delete if it exists in DB (has doc ID)
                     batch.delete(doc(db, "academic_records", r.id));
                     dbDeleteCount++;
                 }
@@ -564,6 +556,11 @@ const GradebookManager = () => {
                                             <tr className="hover:bg-white/5 transition-colors group">
                                                 <td className="p-4 sticky left-0 bg-[#0f172a] group-hover:bg-[#1e293b] border-r border-white/10 text-white uppercase">
                                                     {rec.studentName}
+                                                    {rec.isUnlinked && (
+                                                        <span className="ml-2 text-[9px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">
+                                                            Unlinked
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 
                                                 {detectedHeaders.map(sub => (
