@@ -476,7 +476,14 @@ const GradebookManager = () => {
                     </div>
 
                     <div className="relative">
-                        <input type="file" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*,application/pdf" disabled={uploading} />
+						<input 
+						    type="file" 
+						    onChange={handleFileUpload} 
+						    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+						    // ADD .xlsx, .xls HERE:
+						    accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" 
+						    disabled={uploading} 
+						/>
                         <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs flex items-center gap-2 transition-all shadow-lg hover:shadow-blue-500/20">
                             {Icons.upload} Upload Gradesheet
                         </button>
