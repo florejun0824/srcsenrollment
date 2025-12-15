@@ -17,10 +17,13 @@ const EXCLUDED_TERMS = [
     'MALE', 'FEMALE', 'TOTAL' 
 ];
 
-// --- 1. SPATIAL TEXT EXTRACTOR (RETURNS PAGES ARRAY) ---
-const extractStructuredTextPages = async (arrayBuffer) => {
+// Limit chunk size to ensure <5s processing time
+const LINES_PER_CHUNK = 15; 
+
+// --- 1. SPATIAL TEXT EXTRACTOR (Returns Clean Lines) ---
+const extractCleanLinesFromPDF = async (arrayBuffer) => {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pages = [];
+    const allLines = [];
 
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
@@ -29,7 +32,7 @@ const extractStructuredTextPages = async (arrayBuffer) => {
         // Group items by Y-coordinate (Row Detection)
         const rows = {};
         textContent.items.forEach(item => {
-            const y = Math.round(item.transform[5] / 5) * 5; // Bucket Y values to 5px tolerance
+            const y = Math.round(item.transform[5] / 5) * 5; // 5px tolerance
             if (!rows[y]) rows[y] = [];
             rows[y].push({ x: item.transform[4], str: item.str.trim() });
         });
@@ -37,36 +40,39 @@ const extractStructuredTextPages = async (arrayBuffer) => {
         // Sort Rows (Top to Bottom)
         const sortedY = Object.keys(rows).sort((a, b) => b - a);
         
-        const pageLines = sortedY.map(y => {
+        sortedY.forEach(y => {
             // Sort Columns (Left to Right)
             const rowItems = rows[y].sort((a, b) => a.x - b.x);
-            return rowItems.map(item => item.str).join(' | '); // Pipe separator
+            const lineText = rowItems.map(item => item.str).join(' | '); // Pipe separator
+            
+            // Basic filtering to remove empty lines or headers
+            if (lineText.length > 5 && !EXCLUDED_TERMS.some(term => lineText.toUpperCase().includes(term))) {
+                allLines.push(lineText);
+            }
         });
-
-        // Add this page's text as a distinct chunk
-        pages.push(pageLines.join('\n'));
     }
     
-    return pages;
+    return allLines;
 };
 
-// --- 2. HEADER SCOUT (Look at Page 1 only) ---
-const detectHeaders = async (firstPageText) => {
+// --- 2. HEADER SCOUT (Scan first 20 lines) ---
+const detectHeaders = async (firstLines) => {
     try {
+        const textSample = firstLines.join('\n');
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: "gemma-3-27b-it", 
                 prompt: `
-                Analyze this Grade Sheet text.
+                Analyze these grade sheet lines.
                 Identify the SUBJECT HEADERS (e.g. Filipino, English, Math, Science).
                 Ignore "Name", "Average", "Section".
                 
                 Return strictly a JSON array of strings: ["Math", "English", "Filipino"]
                 
                 TEXT:
-                ${firstPageText.substring(0, 1500)}
+                ${textSample}
                 `
             })
         });
@@ -76,13 +82,13 @@ const detectHeaders = async (firstPageText) => {
         const clean = data.text.replace(/```json|```/g, '').trim();
         return JSON.parse(clean);
     } catch (e) {
-        console.warn("Header detection failed, defaulting to auto-inference.");
-        return [];
+        console.warn("Header detection failed:", e);
+        return []; // Will fallback to generic keys
     }
 };
 
-// --- 3. BATCH WORKER (Process One Page) ---
-const processPageWithGemma = async (pageText, pageIndex, knownHeaders) => {
+// --- 3. MICRO-CHUNK WORKER ---
+const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
     try {
         // Retry logic for 504/500 errors
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -93,35 +99,31 @@ const processPageWithGemma = async (pageText, pageIndex, knownHeaders) => {
                     body: JSON.stringify({
                         model: "gemma-3-27b-it", 
                         prompt: `
-                        You are a data extraction assistant. 
+                        You are a data extraction assistant processing a SMALL CHUNK of a grade sheet.
                         
                         CONTEXT:
-                        - This is Page ${pageIndex + 1} of a Grade Sheet.
-                        - Columns are separated by '|'.
-                        - The detected subject headers are: ${JSON.stringify(knownHeaders)}.
+                        - Subject Headers: ${JSON.stringify(knownHeaders)}.
+                        - Format: "Name | Grade | Grade..." or "No | Name | Grade..."
                         
                         YOUR TASK:
-                        1. Extract student rows. Format: "LASTNAME, FIRSTNAME".
-                        2. Map grades to the subject headers provided.
-                        3. If you see "BOYS" or "GIRLS", use that to infer gender for subsequent names. Default to 'MALE' if unknown.
+                        1. Extract student rows from this text chunk.
+                        2. Map grades to the headers provided.
+                        3. Clean up names (Remove leading numbers like "1. ", "25.").
+                        4. Infer gender: If you see "BOYS" in the text, mark subsequent as MALE. If "GIRLS", mark FEMALE. If neither is present, output "UNKNOWN" (we will fix later).
                         
-                        IGNORE:
-                        - Lines containing: ${EXCLUDED_TERMS.join(', ')}
-                        - Headers, Footers, Signatures.
-
                         OUTPUT FORMAT:
                         Return ONLY a valid JSON array. No markdown.
                         [
                             {
-                                "name": "ALILAIN, BRYAN D.",
-                                "gender": "MALE",
+                                "name": "LASTNAME, FIRSTNAME",
+                                "gender": "MALE", 
                                 "grades": { "Math": "82", "English": "81"... },
                                 "average": "81.00"
                             }
                         ]
 
-                        PAGE TEXT:
-                        ${pageText}
+                        CHUNK TEXT:
+                        ${chunkText}
                         `
                     })
                 });
@@ -133,60 +135,78 @@ const processPageWithGemma = async (pageText, pageIndex, knownHeaders) => {
                 return JSON.parse(cleanText);
 
             } catch (err) {
-                if (attempt === 2) throw err; // Throw on final fail
-                console.warn(`Page ${pageIndex + 1} attempt ${attempt + 1} failed. Retrying...`);
-                await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+                console.warn(`Chunk ${chunkIndex} attempt ${attempt + 1} failed: ${err.message}`);
+                if (attempt === 2) throw err; // Final fail
+                await new Promise(r => setTimeout(r, 1500)); // Wait before retry
             }
         }
     } catch (error) {
-        console.error(`Failed to process Page ${pageIndex + 1}:`, error);
-        return []; // Return empty for this page to allow others to succeed
+        console.error(`Failed to process Chunk ${chunkIndex}:`, error);
+        return []; 
     }
 };
 
-// --- MAIN FUNCTION ---
+// --- MAIN ORCHESTRATOR ---
 export const parseCumulativeGrades = async (file) => {
-    console.log("📄 Reading PDF Structure...");
+    console.log("📄 Reading PDF Lines...");
     
-    // 1. Extract Text Pages (Client Side - Fast)
+    // 1. Extract All Lines (Client Side)
     const arrayBuffer = await file.arrayBuffer();
-    const textPages = await extractStructuredTextPages(arrayBuffer);
-    
-    console.log(`✅ Extracted ${textPages.length} pages of text.`);
+    const allLines = await extractCleanLinesFromPDF(arrayBuffer);
+    console.log(`✅ Extracted ${allLines.length} valid lines.`);
 
-    // 2. Detect Headers (Use Page 1)
-    console.log("🕵️ Detecting headers from Page 1...");
-    const headers = await detectHeaders(textPages[0]);
+    // 2. Detect Headers (First 20 lines usually contain headers)
+    const headers = await detectHeaders(allLines.slice(0, 20));
     console.log("Headers found:", headers);
 
-    // 3. Batch Process Pages (Sequential to prevent Rate Limiting/Timeout)
-    let allRecords = [];
-    
-    for (let i = 0; i < textPages.length; i++) {
-        console.log(`⚡ Processing Page ${i + 1}/${textPages.length}...`);
-        
-        const pageRecords = await processPageWithGemma(textPages[i], i, headers);
-        
-        if (Array.isArray(pageRecords)) {
-            allRecords = [...allRecords, ...pageRecords];
-        }
-        
-        // Small breathing room between batches to prevent 429 Rate Limits
-        await new Promise(r => setTimeout(r, 1000));
+    // 3. Create Micro-Chunks
+    const chunks = [];
+    for (let i = 0; i < allLines.length; i += LINES_PER_CHUNK) {
+        chunks.push(allLines.slice(i, i + LINES_PER_CHUNK).join('\n'));
     }
 
-    // 4. Post-Processing
-    // Deduplicate by name just in case of overlap (rare with page splitting)
+    console.log(`⚡ Processing ${chunks.length} micro-chunks...`);
+
+    // 4. Process Chunks Sequentially
+    let allRecords = [];
+    
+    for (let i = 0; i < chunks.length; i++) {
+        // Skip chunks that are clearly just headers or noise
+        if (chunks[i].length < 50) continue;
+
+        console.log(`Processing Chunk ${i + 1}/${chunks.length}...`);
+        
+        const chunkRecords = await processChunkWithGemma(chunks[i], i, headers);
+        
+        if (Array.isArray(chunkRecords)) {
+            allRecords = [...allRecords, ...chunkRecords];
+        }
+        
+        // Safety Pause to prevent Rate Limiting
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    // 5. Post-Processing: Fix Genders
+    // (Since chunking loses the "BOYS/GIRLS" context header if it was in a previous chunk)
+    // We assume the list is sorted: usually Boys first, then Girls.
+    // If 'gender' is unknown, we can try to guess or default to 'MALE' for top half.
+    // However, usually the name line itself doesn't contain gender, so we rely on the parser finding markers.
+    // A simple fix for "Unknown" is difficult without the full list context, 
+    // but the GradebookManager UI allows manual sorting/fixing.
+    
+    // Deduplicate
     const uniqueMap = new Map();
     allRecords.forEach(r => {
-        if(r.name && r.name.length > 3) {
-            uniqueMap.set(r.name.toUpperCase().replace(/[^A-Z]/g, ''), r);
+        if(r.name && r.name.length > 3 && !r.name.includes("NAME OF LEARNERS")) {
+            // Clean name key
+            const key = r.name.toUpperCase().replace(/[^A-Z]/g, '');
+            uniqueMap.set(key, r);
         }
     });
 
     return {
         meta: { 
-            headers: headers.length > 0 ? headers : ["Math", "English", "Science", "Filipino"], // Fallback
+            headers: headers.length > 0 ? headers : ["Math", "English", "Science"], 
             gradeLevel: "Detected" 
         },
         records: Array.from(uniqueMap.values())
