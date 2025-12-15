@@ -5,27 +5,30 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker?url';
 import Tesseract from 'tesseract.js';
 import * as XLSX from 'xlsx';
 
-// Initialize PDF Worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-// --- API CONFIGURATION ---
 const PROD_API_URL = import.meta.env.VITE_API_BASE_URL || '';
 const isNative = Capacitor.isNativePlatform();
 const API_URL = `${isNative ? PROD_API_URL : ''}/api/gemini`;
 
-// --- PARSER SETTINGS ---
+// --- STOP TOKENS (Stop parsing immediately if seen) ---
+const STOP_TERMS = [
+    'CLASS ADVISER', 'ADVISER', 'CHECKED BY', 'PREPARED BY', 'ATTESTED', 
+    'PRINCIPAL', 'SCHOOL HEAD', 'DIRECTOR', 'SIGNATURE', 'DATE CHECKED'
+];
+
+// --- SKIP TERMS (Skip this row, but keep parsing) ---
 const EXCLUDED_TERMS = [
-    'PARENT', 'TEACHER', 'ADVISER', 'CHECKED BY', 'ATTESTED', 'PRINCIPAL', 
-    'DATE', 'LPT', 'MA-ELM', 'PHD', 'EDD', 'GUIDANCE', 'COORDINATOR', 
-    'SIGNATURE', 'APPROVED', 'SUBMITTED', 'DEPARTMENT',
-    'MEAN', 'MPS', 'TOTAL', 'MALE', 'FEMALE', 'QUARTER', 'GRADING PERIOD',
-    'GRADE LEVEL', 'SECTION', 'SY:', 'SCHOOL',
-    'FAMILY', 'GIVEN', 'MIDDLE', 'INITIAL', 'NAME OF LEARNERS', 'NO.', 'BOYS:', 'GIRLS:'
+    'PARENT', 'TEACHER', 'LPT', 'MA-ELM', 'PHD', 'EDD', 'GUIDANCE', 
+    'COORDINATOR', 'DEPARTMENT', 'MEAN', 'MPS', 'TOTAL', 
+    'MALE', 'FEMALE', 'QUARTER', 'GRADING PERIOD', 'GRADE LEVEL', 
+    'SECTION', 'SY:', 'SCHOOL', 'FAMILY', 'GIVEN', 'MIDDLE', 
+    'INITIAL', 'NAME OF LEARNERS', 'NO.', 'BOYS', 'GIRLS', 'LEARNER'
 ];
 
 const LINES_PER_CHUNK = 10; 
 
-// --- HELPER: ROUNDING LOGIC ---
+// --- HELPER: ROUNDING ---
 const parseAndRound = (val) => {
     if (!val) return 0;
     const num = parseFloat(val);
@@ -33,17 +36,39 @@ const parseAndRound = (val) => {
     return Math.round(num);
 };
 
+// --- HELPER: STRICT NAME VALIDATOR ---
+const isValidStudentName = (nameStr) => {
+    if (!nameStr || nameStr.length < 3) return false;
+    const upper = nameStr.toUpperCase();
+
+    // 1. Must contain a comma (Standard: "LAST, FIRST")
+    if (!upper.includes(',')) return false;
+
+    // 2. Must NOT be a stop/exclude term
+    if (STOP_TERMS.some(t => upper.includes(t))) return false;
+    if (EXCLUDED_TERMS.some(t => upper.includes(t))) return false;
+
+    // 3. Must NOT contain parentheses
+    if (upper.includes('(') || upper.includes(')')) return false;
+
+    // 4. Must start with a letter (after cleaning numbers)
+    const clean = nameStr.replace(/^[\d.\s]+/, ''); 
+    if (!/^[a-zA-Z]/.test(clean)) return false;
+
+    return true;
+};
+
 // ============================================================================
-// 1. EXCEL PARSER (Now Skips Hidden Rows)
+// 1. EXCEL PARSER (Native)
 // ============================================================================
 const parseExcelFile = async (arrayBuffer) => {
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    // Read with cellStyles: true to ensure we get hidden row metadata
+    const workbook = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
-    // Get Row Metadata (Contains hidden status)
+    // Get Row Metadata (Hidden Status)
     const rowMeta = worksheet['!rows'] || [];
-
     const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
     // A. Find Header Row
@@ -51,8 +76,8 @@ const parseExcelFile = async (arrayBuffer) => {
     let headers = [];
     
     for (let i = 0; i < Math.min(25, rawData.length); i++) {
-        // Skip hidden rows during header search too
-        if (rowMeta[i] && rowMeta[i].hidden) continue;
+        // Skip hidden rows in header search
+        if (rowMeta[i] && (rowMeta[i].hidden || rowMeta[i].hpx === 0)) continue;
 
         const rowStr = (rawData[i] || []).join(' ').toUpperCase();
         if (rowStr.includes('MATH') || rowStr.includes('FILIPINO') || rowStr.includes('ENGLISH') || rowStr.includes('SCIENCE')) {
@@ -66,7 +91,7 @@ const parseExcelFile = async (arrayBuffer) => {
     if (headerRowIndex === -1) {
         console.warn("Excel headers not found. Using defaults.");
         headers = ["Filipino", "English", "Mathematics", "Science", "Aral Pan", "TLE", "MAPEH", "EsP"];
-        headerRowIndex = rawData.findIndex(r => r[0] == 1 || r[0] == '1');
+        headerRowIndex = 5;
     }
 
     // B. Extract Data
@@ -74,27 +99,42 @@ const parseExcelFile = async (arrayBuffer) => {
     let currentGender = 'MALE'; 
 
     for (let i = headerRowIndex + 1; i < rawData.length; i++) {
-        // --- CRITICAL FIX: SKIP HIDDEN ROWS ---
-        if (rowMeta[i] && rowMeta[i].hidden) {
-            continue;
+        // 1. STRICT HIDDEN ROW CHECK
+        // Check if row is explicitly hidden OR has zero height
+        if (rowMeta[i] && (rowMeta[i].hidden || rowMeta[i].hpx === 0)) {
+            continue; 
         }
 
         const row = rawData[i];
         if (!row || row.length === 0) continue;
 
+        // Check first column for Markers or Stop Tokens
         const firstCol = (row[0] || '').toString().toUpperCase();
+        
+        // 🛑 STOP CONDITION: If we hit "Adviser", "Principal", etc., STOP parsing entirely.
+        if (STOP_TERMS.some(term => firstCol.includes(term))) {
+            break; 
+        }
+
+        // Gender Switch
         if (firstCol.includes('GIRLS') || firstCol.includes('FEMALE')) {
             currentGender = 'FEMALE';
             continue;
         }
 
+        // 2. Identify Name
         let name = '';
         let nameIndex = -1;
         if (typeof row[1] === 'string' && row[1].length > 3) { name = row[1]; nameIndex = 1; }
         else if (typeof row[0] === 'string' && row[0].length > 3) { name = row[0]; nameIndex = 0; }
 
-        if (!name || EXCLUDED_TERMS.some(x => name.toUpperCase().includes(x))) continue;
+        // Clean name (Remove "1. ", "25.")
+        const cleanName = name.replace(/^\d+[\.\s]+/, '').trim();
 
+        // 3. STRICT VALIDATION
+        if (!isValidStudentName(cleanName)) continue;
+
+        // 4. Map Grades
         const grades = {};
         let gradeColIndex = nameIndex + 1;
         
@@ -108,6 +148,7 @@ const parseExcelFile = async (arrayBuffer) => {
             }
         });
 
+        // 5. Average
         let average = 0;
         while (gradeColIndex < row.length) {
             const val = parseFloat(row[gradeColIndex]);
@@ -119,7 +160,7 @@ const parseExcelFile = async (arrayBuffer) => {
         }
 
         records.push({
-            name: name.replace(/^\d+\.?\s*/, '').trim(),
+            name: cleanName,
             gender: currentGender,
             grades: grades,
             average: parseAndRound(average)
@@ -130,7 +171,7 @@ const parseExcelFile = async (arrayBuffer) => {
 };
 
 // ============================================================================
-// 2. PDF PARSER UTILITIES (Kept same as before)
+// 2. PDF PARSER UTILITIES
 // ============================================================================
 
 const performOCR = async (pdfPage) => {
@@ -222,12 +263,22 @@ const extractPreTaggedLines = async (pdfDoc) => {
 
         linesToProcess.forEach(lineText => {
             const upperLine = lineText.toUpperCase();
+
+            // Gender Switch
             if (upperLine.includes('GIRLS') || (upperLine.includes('FEMALE') && !upperLine.includes('MA-ELM'))) {
                 currentGender = 'FEMALE';
                 return; 
             }
-            const isNoise = EXCLUDED_TERMS.some(term => upperLine.includes(term));
-            if (!isNoise && lineText.length > 5) {
+            
+            // Check STOP tokens in PDF lines too
+            if (STOP_TERMS.some(t => upperLine.includes(t))) return;
+
+            // Extract Name Part
+            const parts = lineText.split('|');
+            const potentialName = parts[0].trim().replace(/^\d+[\.\s]+/, '');
+
+            // Strict Validation
+            if (isValidStudentName(potentialName)) {
                 allLines.push(`[GENDER:${currentGender}] ${lineText}`);
             }
         });
@@ -266,11 +317,13 @@ const processChunkWithGemma = async (chunkText, chunkIndex, knownHeaders) => {
                 let clean = data.text.replace(/```json|```/g, '').trim();
                 const s = clean.indexOf('['); const e = clean.lastIndexOf(']');
                 if (s !== -1 && e !== -1) clean = clean.substring(s, e + 1);
+                
                 const parsed = JSON.parse(clean);
                 return parsed.map(p => ({
                     ...p,
                     average: parseAndRound(p.average)
                 }));
+
             } catch (err) {
                 if (attempt === 2) throw err;
                 await new Promise(r => setTimeout(r, 1500));
