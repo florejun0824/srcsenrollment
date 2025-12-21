@@ -804,56 +804,64 @@ const EnrollmentForm = () => {
                         showStrand={showStrand} 
                     />
 
-                    {/* SUBMIT SECTION */}
-                    <div className="bg-white/5 rounded-[2rem] p-8 md:p-12 border border-white/5 shadow-2xl mt-12 mb-4">
-                        <div className="mb-10 text-center">
-                            <label className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-6 block">Printed Parent/Guardian Name</label>
-                            <div className="flex flex-wrap justify-center gap-4">
-                                <RadioButton name="signatory" value="Father" label="Father" checked={data.signatory === 'Father'} onChange={handleChange} />
-                                <RadioButton name="signatory" value="Mother" label="Mother" checked={data.signatory === 'Mother'} onChange={handleChange} />
-                                <RadioButton name="signatory" value="Guardian" label="Guardian" checked={data.signatory === 'Guardian'} onChange={handleChange} />
-                            </div>
-                        </div>
+						{/* SUBMIT SECTION */}
+						                    <div className="bg-white/5 rounded-[2rem] p-8 md:p-12 border border-white/5 shadow-2xl mt-12 mb-4">
+						                        <div className="mb-10 text-center">
+						                            <label className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-6 block">Printed Parent/Guardian Name</label>
+						                            <div className="flex flex-wrap justify-center gap-4">
+						                                <RadioButton name="signatory" value="Father" label="Father" checked={data.signatory === 'Father'} onChange={handleChange} />
+						                                <RadioButton name="signatory" value="Mother" label="Mother" checked={data.signatory === 'Mother'} onChange={handleChange} />
+						                                <RadioButton name="signatory" value="Guardian" label="Guardian" checked={data.signatory === 'Guardian'} onChange={handleChange} />
+						                            </div>
+						                        </div>
 
-                        {/* SECURITY: RECAPTCHA WIDGET */}
-                        {/* Go to https://www.google.com/recaptcha/admin to get your SITE KEY (v2 Checkbox) */}
-                        <div className="flex justify-center mb-8">
-                            <ReCAPTCHA
-                                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                                onChange={(token) => setCaptchaToken(token)}
-                                theme="dark"
-                            />
-                        </div>
+						                        {/* SECURITY: RECAPTCHA WIDGET */}
+						                        <div className="flex justify-center mb-8">
+						                            <ReCAPTCHA
+						                                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+						                                onChange={(token) => setCaptchaToken(token)}
+						                                theme="dark"
+						                            />
+						                        </div>
 
-                        <button
-                            type="submit"
-                            disabled={!isFormValid() || loading}
-                            className={`w-full py-5 px-6 rounded-2xl font-black text-lg text-white shadow-xl shadow-red-900/20 transform transition-all duration-300 flex items-center justify-center gap-3
-                                ${!isFormValid() || loading
-                                    ? 'bg-slate-800 cursor-not-allowed opacity-50 grayscale border border-white/5'
-                                    : 'bg-gradient-to-r from-[#800000] to-red-600 hover:to-red-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-900/50'
-                                }`}
-                        >
-                            {loading ? (
-                                <>
-                                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                    PROCESSING...
-                                </>
-                            ) : (
-                                existingId ? 'REVIEW & UPDATE APPLICATION' : 'REVIEW & SUBMIT APPLICATION'
-                            )}
-                        </button>
+						                        <button
+						                            type="submit"
+						                            // CHANGED: Added check for captchaToken (only if it's a new enrollment)
+						                            disabled={!isFormValid() || loading || (!existingId && !captchaToken)}
+						                            className={`w-full py-5 px-6 rounded-2xl font-black text-lg text-white shadow-xl shadow-red-900/20 transform transition-all duration-300 flex items-center justify-center gap-3
+						                                ${!isFormValid() || loading || (!existingId && !captchaToken)
+						                                    ? 'bg-slate-800 cursor-not-allowed opacity-50 grayscale border border-white/5'
+						                                    : 'bg-gradient-to-r from-[#800000] to-red-600 hover:to-red-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-900/50'
+						                                }`}
+						                        >
+						                            {loading ? (
+						                                <>
+						                                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+						                                    PROCESSING...
+						                                </>
+						                            ) : (
+						                                existingId ? 'REVIEW & UPDATE APPLICATION' : 'REVIEW & SUBMIT APPLICATION'
+						                            )}
+						                        </button>
 
-                        {!isFormValid() && (
-                            <div className="flex items-center justify-center gap-2 text-center text-red-400 font-bold text-xs mt-6 bg-red-900/20 py-4 rounded-xl border border-red-500/20 animate-pulse">
-                                {Icons.alert} <span>Please complete all required fields (marked with *) to proceed.</span>
-                            </div>
-                        )}
-                        <p className="text-center text-slate-500 text-[10px] mt-8 px-4 uppercase tracking-widest font-bold opacity-50">
-                            San Ramon Catholic School Enrollment System © {currentYear}
-                        </p>
-                    </div>
+						                        {/* Form Invalid Error */}
+						                        {!isFormValid() && (
+						                            <div className="flex items-center justify-center gap-2 text-center text-red-400 font-bold text-xs mt-6 bg-red-900/20 py-4 rounded-xl border border-red-500/20 animate-pulse">
+						                                {Icons.alert} <span>Please complete all required fields (marked with *) to proceed.</span>
+						                            </div>
+						                        )}
 
+						                        {/* NEW: Captcha Missing Warning (Only shows if form IS valid but Captcha is NOT done) */}
+						                        {isFormValid() && !captchaToken && !existingId && (
+						                            <div className="flex items-center justify-center gap-2 text-center text-amber-400 font-bold text-xs mt-6 bg-amber-900/20 py-4 rounded-xl border border-amber-500/20 animate-pulse">
+						                                {Icons.alert} <span>Please check the "I am not a robot" box above.</span>
+						                            </div>
+						                        )}
+
+						                        <p className="text-center text-slate-500 text-[10px] mt-8 px-4 uppercase tracking-widest font-bold opacity-50">
+						                            San Ramon Catholic School Enrollment System © {currentYear}
+						                        </p>
+						                    </div>
                 </form>
             </div>
         </div>
