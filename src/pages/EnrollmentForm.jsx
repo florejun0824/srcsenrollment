@@ -467,9 +467,11 @@ const EnrollmentForm = () => {
     const [captchaToken, setCaptchaToken] = useState(null);
 
     // Config
+// Config
     const currentYear = new Date().getFullYear();
     const schoolYearOptions = Array.from({ length: 10 }, (_, i) => {
-        const start = currentYear + 1 + i;
+        // Change this line: remove the "+ 1"
+        const start = currentYear + i; 
         return `${start}-${start + 1}`;
     });
 
