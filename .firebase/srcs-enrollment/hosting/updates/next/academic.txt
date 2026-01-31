@@ -1,0 +1,19 @@
+THE FUTURE OF ACADEMIC TRANSPARENCY: WHAT’S NEXT
+
+We believe that students and parents should have a clear, real-time view of academic progress. Our developer is currently building the "Final Link" between teacher gradebooks and your personal student portal.
+
+Here are the upcoming features for Academic Records:
+
+📊 Real-Time Grade Synchronization
+No more waiting for the end of the quarter. The developer is implementing an automatic reflection system. 
+The moment a teacher's cumulative grade sheet is finalized, your grades across all subjects will instantly populate in your student portal. This ensures that the data you see is always the most accurate and up-to-date version of your academic standing.
+
+📜 Official Grade Exporting & Printing
+Professional records, available anywhere. We are currently developing an "Export to PDF" function for student grades.
+With a single click, students and parents will be able to generate an official digital copy of their grades, complete with the formal school header, footer, and branding. This tool is designed to provide you with a high-quality document ready for personal archiving or official requirements.
+
+🚀 Unified Academic Dashboard
+We are redesigning the academic view to be more than just a list of numbers. 
+The upcoming dashboard will provide a holistic view of your journey, combining the synchronized grades and exported reports into one intuitive, easy-to-navigate interface.
+
+These features are currently in the development pipeline. We are working hard to ensure that your academic data is not just recorded, but is truly accessible and useful for your future!

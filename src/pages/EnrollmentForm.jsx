@@ -4,28 +4,33 @@ import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
 import ReCAPTCHA from "react-google-recaptcha";
+import StatusModal from '../components/StatusModal';
 
 // ==========================================
-// 0. OPTIMIZED AURORA BACKGROUND (MEMOIZED)
+// 0. STATIC AURORA BACKGROUND (BLUE DOMINANT)
 // ==========================================
 const AuroraBackground = memo(() => (
     <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-slate-50">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-50/80 via-white/60 to-slate-100/80" />
-        {/* Blob 1 */}
+        {/* Base Light Gradient - Shifted to cool tones */}
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-50/60 via-slate-50/60 to-emerald-50/60" />
+        
+        {/* Static Conic Aurora Effect */}
         <div 
-            className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-indigo-300/30 rounded-full blur-[100px] mix-blend-multiply"
-            style={{ transform: 'translate3d(0,0,0)', willChange: 'transform' }} // Added willChange
+            className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-[0.3]" 
+            style={{
+                mixBlendMode: 'multiply',
+                filter: 'blur(90px)', // Soften the transition between deep maroon and bright blue
+                background: `conic-gradient(from 180deg at 50% 50%, 
+                    #0ea5e9 0deg,    /* Sky Blue (Start) */
+                    #10b981 80deg,   /* Emerald (Replacing Red) */
+                    #3b82f6 140deg,  /* Royal Blue (Prominent Section) */
+                    #2563eb 200deg,  /* Deep Blue (Extending prominence) */
+                    #881337 280deg,  /* Maroon (Replacing Purple) */
+                    #0ea5e9 360deg)` /* Sky Blue (Loop back) */
+            }}
         />
-        {/* Blob 2 */}
-        <div 
-            className="absolute top-[10%] right-[-20%] w-[60vw] h-[60vw] bg-fuchsia-300/30 rounded-full blur-[100px] mix-blend-multiply"
-            style={{ transform: 'translate3d(0,0,0)', willChange: 'transform' }}
-        />
-        {/* Blob 3 */}
-        <div 
-            className="absolute bottom-[-20%] left-[20%] w-[60vw] h-[60vw] bg-cyan-300/30 rounded-full blur-[100px] mix-blend-multiply"
-            style={{ transform: 'translate3d(0,0,0)', willChange: 'transform' }}
-        />
+
+        {/* Subtle Mesh Texture */}
         <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
     </div>
 ));
@@ -33,7 +38,7 @@ const AuroraBackground = memo(() => (
 AuroraBackground.displayName = 'AuroraBackground';
 
 // ==========================================
-// 1. ICONS (SVG) - Static Object (No Changes Needed)
+// 1. ICONS (SVG) - Static Object
 // ==========================================
 const Icons = {
     user: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
@@ -56,25 +61,27 @@ const Icons = {
 
 const InputGroup = memo(({ label, name, value, onChange, type = "text", required = false, placeholder = "", width = "col-span-1", disabled = false, pattern, errorMessage }) => (
     <div className={`flex flex-col ${width} group relative`}>
-        <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1 group-focus-within:text-red-600 transition-colors">
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1 group-focus-within:text-red-600 transition-colors">
             {label} {required && <span className="text-red-500">*</span>}
         </label>
-        <input
-            type={type}
-            name={name}
-            value={value}
-            onChange={onChange}
-            required={required && !disabled}
-            disabled={disabled}
-            placeholder={placeholder}
-            pattern={pattern}
-            className={`w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm md:text-base rounded-2xl px-5 py-4
-            focus:bg-white focus:ring-4 focus:ring-red-500/10 focus:border-red-500 
-            hover:border-slate-300 transition-all duration-300 outline-none shadow-sm
-            placeholder:text-slate-400 placeholder:text-xs placeholder:uppercase placeholder:font-bold
-            invalid:border-red-300 invalid:text-red-600
-            disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100`}
-        />
+        <div className="relative">
+            <input
+                type={type}
+                name={name}
+                value={value}
+                onChange={onChange}
+                required={required && !disabled}
+                disabled={disabled}
+                placeholder={placeholder}
+                pattern={pattern}
+                className={`w-full bg-white/60 backdrop-blur-sm border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl px-4 py-3.5
+                focus:bg-white focus:ring-4 focus:ring-red-500/10 focus:border-red-500 focus:shadow-lg focus:shadow-red-500/5
+                hover:border-slate-300 transition-all duration-200 outline-none shadow-sm
+                placeholder:text-slate-400 placeholder:text-[11px] placeholder:uppercase placeholder:font-bold placeholder:tracking-wide
+                invalid:border-red-300 invalid:text-red-600
+                disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100`}
+            />
+        </div>
         {errorMessage && (
             <span className="hidden peer-invalid:block text-[10px] text-red-500 mt-1 ml-1 font-medium">{errorMessage}</span>
         )}
@@ -83,34 +90,34 @@ const InputGroup = memo(({ label, name, value, onChange, type = "text", required
 InputGroup.displayName = 'InputGroup';
 
 const RadioButton = memo(({ name, value, label, checked, onChange }) => (
-    <label className={`relative flex items-center justify-center p-4 rounded-2xl border cursor-pointer transition-all duration-300 flex-1 active:scale-95
+    <label className={`relative flex items-center justify-center p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 flex-1 active:scale-95 select-none
         ${checked 
-            ? 'border-red-500 bg-red-50/50 text-red-700 shadow-md shadow-red-100' 
-            : 'border-slate-200 bg-white/50 text-slate-600 hover:bg-white hover:border-slate-300' 
+            ? 'border-red-500 bg-red-50 text-red-700 shadow-md shadow-red-100' 
+            : 'border-slate-100 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50' 
         }`}>
         <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
-        <span className="text-xs font-bold uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
         {checked && (
-            <div className="absolute top-3 right-3 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
         )}
     </label>
 ));
 RadioButton.displayName = 'RadioButton';
 
 const SectionHeader = memo(({ title, icon }) => (
-    <div className="flex items-center gap-4 mb-8 pt-8 border-t border-slate-100 first:border-0 first:pt-0">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-600 to-[#800000] flex items-center justify-center text-white shadow-lg shadow-red-200/50 border border-white">
+    <div className="flex items-center gap-4 mb-6 pt-8 border-t border-slate-100 first:border-0 first:pt-0">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-[#800000] flex items-center justify-center text-white shadow-lg shadow-red-200/50 border border-white/20">
             {icon}
         </div>
         <div className="flex flex-col">
-            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight leading-none">{title}</h3>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Fill in the details below</span>
+            <h3 className="text-base font-black text-slate-800 uppercase tracking-tight leading-none">{title}</h3>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Required Information</span>
         </div>
     </div>
 ));
 SectionHeader.displayName = 'SectionHeader';
 
-const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = false, existingUrl }) => {
+const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = false, existingUrl, setModal }) => {
     const [uploading, setUploading] = useState(false);
     const [preview, setPreview] = useState(existingUrl || null);
 
@@ -123,7 +130,12 @@ const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = fa
         if (!file) return;
 
         if (file.size > 5 * 1024 * 1024) {
-            alert("File is too large! Please upload a file smaller than 5MB.");
+            setModal({
+                isOpen: true,
+                type: 'error',
+                title: 'File Too Large',
+                message: 'Please upload a file smaller than 5MB.'
+            });
             return;
         }
 
@@ -136,7 +148,12 @@ const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = fa
 
         if (!uploadPreset || !cloudName) {
             console.error("Missing Cloudinary configuration in .env file");
-            alert("System configuration error. Please contact admin.");
+            setModal({
+                isOpen: true,
+                type: 'error',
+                title: 'Configuration Error',
+                message: 'System configuration error. Please contact admin.'
+            });
             setUploading(false);
             return;
         }
@@ -155,11 +172,21 @@ const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = fa
                 onUploadComplete(data.secure_url);
             } else {
                 console.error("Upload Error:", data);
-                alert("Upload failed. Please check console.");
+                setModal({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Upload Failed',
+                    message: 'Upload failed. Please check your internet connection or try again later.'
+                });
             }
         } catch (err) {
             console.error("Error uploading:", err);
-            alert("Error uploading file.");
+            setModal({
+                isOpen: true,
+                type: 'error',
+                title: 'Upload Error',
+                message: 'An unexpected error occurred while uploading.'
+            });
         } finally {
             setUploading(false);
         }
@@ -167,33 +194,31 @@ const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = fa
 
     const handleRemove = (e) => {
         e.preventDefault();
-        if (window.confirm("Are you sure you want to remove this file?")) {
-            setPreview(null);
-            onRemove(); 
-        }
+        setPreview(null);
+        onRemove(); 
     };
 
     return (
         <div className="flex flex-col md:col-span-2 group">
-            <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
                 {label} {required && <span className="text-red-500">*</span>}
             </label>
-            <div className={`relative flex items-center gap-4 p-4 rounded-2xl border border-dashed transition-all duration-300
-                ${preview ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-300 bg-slate-50/50 hover:bg-white hover:border-slate-400'}`}>
+            <div className={`relative flex items-center gap-4 p-4 rounded-xl border border-dashed transition-all duration-300
+                ${preview ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-300 bg-slate-50/50 hover:bg-white hover:border-red-300 hover:shadow-sm'}`}>
                 
                 {!preview ? (
-                    <label className={`flex-1 flex flex-col md:flex-row items-center justify-center gap-3 py-6 cursor-pointer transition-all
+                    <label className={`flex-1 flex flex-col md:flex-row items-center justify-center gap-3 py-4 cursor-pointer transition-all
                         ${uploading ? 'opacity-50 cursor-wait' : ''}`}>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors 
-                            ${uploading ? 'bg-slate-200' : 'bg-white border border-slate-200 text-red-500 shadow-sm'}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors 
+                            ${uploading ? 'bg-slate-200' : 'bg-white border border-slate-200 text-red-500 shadow-sm group-hover:scale-110 transition-transform'}`}>
                             {uploading ? (
-                                <span className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"/>
+                                <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"/>
                             ) : (
                                 Icons.upload
                             )}
                         </div>
                         <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                            <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide group-hover:text-red-600 transition-colors">
                                 {uploading ? 'Uploading...' : 'Click to Upload File'}
                             </span>
                             <span className="text-[10px] text-slate-400 font-medium">Max 5MB (Image/PDF)</span>
@@ -202,20 +227,20 @@ const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = fa
                     </label>
                 ) : (
                     <div className="flex-1 flex items-center justify-between min-w-0">
-                        <div className="flex items-center gap-4 overflow-hidden">
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-200">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-200">
                                 {Icons.check}
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-bold text-emerald-700 truncate">Upload Complete</span>
-                                <a href={preview} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:underline transition-colors mt-0.5">
-                                    {Icons.eye} View Document
+                                <span className="text-xs font-bold text-emerald-700 truncate">File Attached</span>
+                                <a href={preview} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-emerald-600 hover:underline transition-colors mt-0.5">
+                                    {Icons.eye} View
                                 </a>
                             </div>
                         </div>
                         <button 
                             onClick={handleRemove} 
-                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-red-500 hover:bg-red-50 hover:text-red-600 transition-all shadow-sm"
+                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all shadow-sm"
                             title="Remove File"
                         >
                             {Icons.trash}
@@ -235,11 +260,11 @@ FileUploadGroup.displayName = 'FileUploadGroup';
 const EnrollmentSettings = memo(({ data, handleChange, schoolYearOptions, ageRule, ageError }) => (
     <div className="mb-8">
         <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-8">Enrollment Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className="col-span-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">School Year</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">School Year</label>
                 <div className="relative group">
-                    <select name="schoolYear" value={data.schoolYear} onChange={handleChange} className="w-full font-bold text-slate-700 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none appearance-none cursor-pointer transition-all shadow-sm">
+                    <select name="schoolYear" value={data.schoolYear} onChange={handleChange} className="w-full font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none appearance-none cursor-pointer transition-all shadow-sm hover:border-slate-300">
                         {schoolYearOptions.map(year => <option key={year} value={year}>{year}</option>)}
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400 text-xs">▼</div>
@@ -247,9 +272,9 @@ const EnrollmentSettings = memo(({ data, handleChange, schoolYearOptions, ageRul
             </div>
 
             <div className="col-span-1 lg:col-span-1">
-                <label className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-2 block">Grade Level</label>
+                <label className="text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-1.5 block">Grade Level</label>
                 <div className="relative group">
-                    <select name="gradeLevel" value={data.gradeLevel} onChange={handleChange} required className="w-full font-bold text-slate-700 bg-amber-50/50 backdrop-blur-sm border border-amber-200 rounded-2xl p-4 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none appearance-none shadow-sm cursor-pointer transition-all">
+                    <select name="gradeLevel" value={data.gradeLevel} onChange={handleChange} required className="w-full font-bold text-slate-700 bg-amber-50/50 border border-amber-200 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none appearance-none shadow-sm cursor-pointer transition-all">
                         <option value="">-- Select Level --</option>
                         <option value="Pre-Kindergarten 1">Pre-Kindergarten 1</option>
                         <option value="Pre-Kindergarten 2">Pre-Kindergarten 2</option>
@@ -260,13 +285,13 @@ const EnrollmentSettings = memo(({ data, handleChange, schoolYearOptions, ageRul
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-amber-600 text-xs">▼</div>
                 </div>
-                {ageRule && !ageError && <div className="mt-3 text-[10px] text-amber-700 font-bold bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-center gap-2"><span>💡</span> {ageRule}</div>}
-                {ageError && <div className="mt-3 text-[10px] text-red-600 font-bold bg-red-50 p-2.5 rounded-lg border border-red-200 flex items-center gap-2 animate-pulse"><span>🚫</span> Requirement not met</div>}
+                {ageRule && !ageError && <div className="mt-2 text-[10px] text-amber-700 font-bold bg-amber-50 p-2 rounded-lg border border-amber-100 flex items-center gap-2"><span>💡</span> {ageRule}</div>}
+                {ageError && <div className="mt-2 text-[10px] text-red-600 font-bold bg-red-50 p-2 rounded-lg border border-red-100 flex items-center gap-2 animate-pulse"><span>🚫</span> Requirement not met</div>}
             </div>
 
             <div className="col-span-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Student Type</label>
-                <div className="grid grid-cols-2 gap-3">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">Student Type</label>
+                <div className="grid grid-cols-2 gap-2">
                     {['New', 'Old', 'Transferee', 'Returning'].map((type) => (
                         <RadioButton key={type} name="studentType" value={type} label={type} checked={data.studentType === type} onChange={handleChange} />
                     ))}
@@ -274,12 +299,12 @@ const EnrollmentSettings = memo(({ data, handleChange, schoolYearOptions, ageRul
             </div>
 
             <div className="col-span-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">LRN Status</label>
-                <div className="flex gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">LRN Status</label>
+                <div className="flex gap-2 bg-slate-100/80 p-1 rounded-xl border border-slate-200 h-[50px] items-center">
                     {['With LRN', 'No LRN'].map((status) => (
-                        <label key={status} className={`flex-1 cursor-pointer text-center text-[10px] font-bold uppercase py-3 rounded-xl transition-all 
+                        <label key={status} className={`flex-1 h-full flex items-center justify-center cursor-pointer text-center text-[10px] font-bold uppercase rounded-lg transition-all 
                             ${data.lrnStatus === status 
-                                ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' 
+                                ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
                                 : 'text-slate-400 hover:text-slate-600'}`}>
                             <input type="radio" name="lrnStatus" value={status} checked={data.lrnStatus === status} onChange={handleChange} className="hidden" />
                             {status}
@@ -292,26 +317,27 @@ const EnrollmentSettings = memo(({ data, handleChange, schoolYearOptions, ageRul
 ));
 EnrollmentSettings.displayName = 'EnrollmentSettings';
 
-const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove, onPsaUpload, onPsaRemove }) => {
+const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove, onPsaUpload, onPsaRemove, setModal }) => {
     const [showPage2, setShowPage2] = useState(false);
 
     return (
         <div className="mb-10">
             <SectionHeader title="Student Profile" icon={Icons.user} />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 
                 {/* --- DOCUMENTS UPLOAD SECTION --- */}
-                <div className="md:col-span-4 bg-slate-50/50 rounded-3xl p-6 md:p-8 border border-slate-200 mb-4 shadow-inner">
-                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <div className="md:col-span-4 bg-slate-50 rounded-2xl p-6 border border-slate-200 mb-4 shadow-sm">
+                    <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
                         {Icons.upload} Documents (Optional)
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FileUploadGroup 
                             label="Student 2x2 ID Photo" 
                             onUploadComplete={onPhotoUpload} 
                             onRemove={onPhotoRemove}
                             required={false} 
-                            existingUrl={data.studentPhotoUrl} 
+                            existingUrl={data.studentPhotoUrl}
+                            setModal={setModal}
                         />
                         
                         <div className="flex flex-col gap-4 md:col-span-2 lg:col-span-1">
@@ -320,6 +346,7 @@ const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove,
                                 onUploadComplete={(url) => onPsaUpload(url, 1)} 
                                 onRemove={() => onPsaRemove(1)}
                                 existingUrl={data.psaScanUrl} 
+                                setModal={setModal}
                             />
 
                             {data.psaScanUrl2 || showPage2 ? (
@@ -329,6 +356,7 @@ const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove,
                                         onUploadComplete={(url) => onPsaUpload(url, 2)} 
                                         onRemove={() => { onPsaRemove(2); setShowPage2(false); }}
                                         existingUrl={data.psaScanUrl2} 
+                                        setModal={setModal}
                                     />
                                 </div>
                             ) : (
@@ -336,7 +364,7 @@ const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove,
                                     <button 
                                         type="button"
                                         onClick={() => setShowPage2(true)}
-                                        className="text-[10px] font-bold text-red-600 flex items-center gap-2 hover:underline opacity-80 hover:opacity-100 transition-all bg-white px-4 py-2 rounded-xl border border-dashed border-red-200 hover:border-red-500 shadow-sm"
+                                        className="text-[10px] font-bold text-slate-500 flex items-center gap-2 hover:text-red-600 transition-all bg-white px-4 py-2.5 rounded-lg border border-dashed border-slate-300 hover:border-red-400 shadow-sm w-full justify-center"
                                     >
                                         {Icons.plus} Add Page 2 (Back Page)
                                     </button>
@@ -357,7 +385,7 @@ const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove,
                 <InputGroup label="Date of Birth" name="dob" type="date" value={data.dob} onChange={handleChange} required width="md:col-span-1" />
                 
                 <div className="md:col-span-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1 block">Sex</label>
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1 block">Sex</label>
                     <div className="flex gap-3">
                         <RadioButton name="sex" value="Male" label="Male" checked={data.sex === 'Male'} onChange={handleChange} />
                         <RadioButton name="sex" value="Female" label="Female" checked={data.sex === 'Female'} onChange={handleChange} />
@@ -367,19 +395,19 @@ const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove,
                 <InputGroup label="Age" name="age" type="number" value={data.age} onChange={handleChange} width="md:col-span-1" />
                 <InputGroup label="Mother Tongue" name="motherTongue" value={data.motherTongue} onChange={handleChange} width="md:col-span-1" />
                 
-                <div className="md:col-span-4 bg-slate-50/50 rounded-2xl p-5 border border-slate-200 flex flex-col md:flex-row md:items-center gap-6 shadow-sm">
+                <div className="md:col-span-4 bg-slate-50 rounded-2xl p-5 border border-slate-200 flex flex-col md:flex-row md:items-center gap-6 shadow-sm">
                     <div className="flex-shrink-0">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Belong to Indigenous People (IP)?</span>
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Belong to Indigenous People (IP)?</span>
                     </div>
                     <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer group">
+                        <label className="flex items-center gap-2 cursor-pointer group select-none">
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${!data.isIP ? 'border-red-500 bg-white' : 'border-slate-300 bg-white'}`}>
                                 {!data.isIP && <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />}
                             </div>
                             <input type="radio" name="isIP" value="false" checked={!data.isIP} onChange={handleChange} className="hidden" />
                             <span className="text-xs font-bold uppercase text-slate-700">No</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer group">
+                        <label className="flex items-center gap-2 cursor-pointer group select-none">
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${data.isIP ? 'border-red-500 bg-white' : 'border-slate-300 bg-white'}`}>
                                 {data.isIP && <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />}
                             </div>
@@ -406,7 +434,7 @@ StudentProfile.displayName = 'StudentProfile';
 const AddressInfo = memo(({ data, handleChange }) => (
     <div className="mb-10">
         <SectionHeader title="Home Address" icon={Icons.home} />
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
             <InputGroup label="House # / Street / Sitio" name="addressStreet" value={data.addressStreet} onChange={handleChange} width="md:col-span-2" />
             <InputGroup label="Barangay" name="addressBarangay" value={data.addressBarangay} onChange={handleChange} width="md:col-span-2" />
             <InputGroup label="City / Municipality" name="addressCity" value={data.addressCity} onChange={handleChange} width="md:col-span-2" />
@@ -420,7 +448,7 @@ AddressInfo.displayName = 'AddressInfo';
 const ParentInfo = memo(({ data, handleChange }) => (
     <div className="mb-10">
         <SectionHeader title="Parent / Guardian" icon={Icons.family} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <InputGroup label="Father's Full Name" name="fatherName" value={data.fatherName} onChange={handleChange} placeholder="LAST, FIRST, MIDDLE" required />
             <InputGroup label="Mother's Maiden Name" name="motherName" value={data.motherName} onChange={handleChange} placeholder="LAST, FIRST, MIDDLE" required />
             <InputGroup label="Guardian's Name" name="guardianName" value={data.guardianName} onChange={handleChange} placeholder="IF APPLICABLE" />
@@ -434,7 +462,7 @@ const ParentInfo = memo(({ data, handleChange }) => (
                     type="tel" 
                     required 
                     placeholder="09XXXXXXXXX"
-                    pattern="^09\d{9}$" // Regex: Starts with 09, followed by 9 digits
+                    pattern="^09\d{9}$" 
                 />
                 <InputGroup label="Mobile No. 2" name="contactNumber2" value={data.contactNumber2} onChange={handleChange} type="tel" placeholder="Optional" />
             </div>
@@ -446,13 +474,13 @@ ParentInfo.displayName = 'ParentInfo';
 const PreviousSchoolInfo = memo(({ data, handleChange, show }) => {
     if (!show) return null;
     return (
-        <div className="bg-blue-50/50 rounded-2xl p-6 md:p-8 border border-blue-100 mb-10 animate-fade-in-up">
+        <div className="bg-blue-50 rounded-2xl p-6 md:p-8 border border-blue-100 mb-10 animate-fade-in-up shadow-sm">
             <SectionHeader title="Previous School" icon={Icons.school} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                 <InputGroup label="Last School Attended" name="lastSchoolName" value={data.lastSchoolName} onChange={handleChange} required />
                 <InputGroup label="School Address" name="lastSchoolAddress" value={data.lastSchoolAddress} onChange={handleChange} required />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-blue-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-6 border-t border-blue-200/50">
                 <InputGroup label="Last Grade Level" name="lastGradeLevel" value={data.lastGradeLevel} onChange={handleChange} />
                 <InputGroup label="Last School Year" name="lastSchoolYear" value={data.lastSchoolYear} onChange={handleChange} />
                 <InputGroup label="School ID (If Known)" name="lastSchoolID" value={data.lastSchoolID || ''} onChange={handleChange} />
@@ -465,7 +493,7 @@ PreviousSchoolInfo.displayName = 'PreviousSchoolInfo';
 const SHSDetails = memo(({ data, handleChange, isTrackDisabled, showStrand }) => {
     if (!data.gradeLevel.includes('SHS')) return null;
     return (
-        <div className="bg-amber-50/50 rounded-2xl p-6 md:p-8 border border-amber-200 relative overflow-hidden mb-8 animate-fade-in shadow-lg shadow-amber-100/50">
+        <div className="bg-amber-50 rounded-2xl p-6 md:p-8 border border-amber-200 relative overflow-hidden mb-8 animate-fade-in shadow-md shadow-amber-100/50">
              <div className="absolute top-0 right-0 text-amber-500/10 text-[10rem] font-black -mt-8 -mr-8 select-none pointer-events-none">SHS</div>
              <div className="relative z-10">
                 <h3 className="text-xl font-black text-amber-600 uppercase tracking-tight mb-8 flex items-center gap-3">
@@ -473,7 +501,7 @@ const SHSDetails = memo(({ data, handleChange, isTrackDisabled, showStrand }) =>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div>
-                        <label className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-3 block">Semester</label>
+                        <label className="text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-3 block">Semester</label>
                         <div className="flex gap-3">
                             <RadioButton name="semester" value="1ST SEMESTER" label="1st Sem" checked={data.semester === '1ST SEMESTER'} onChange={handleChange} />
                             <RadioButton name="semester" value="2ND SEMESTER" label="2nd Sem" checked={data.semester === '2ND SEMESTER'} onChange={handleChange} />
@@ -515,6 +543,22 @@ const EnrollmentForm = () => {
     const [existingId, setExistingId] = useState(null);
     const [captchaToken, setCaptchaToken] = useState(null);
     
+    // NEW: State for Status Modal
+    const [modalState, setModalState] = useState({
+        isOpen: false,
+        type: 'info', // 'success', 'error', 'warning', 'info'
+        title: '',
+        message: ''
+    });
+
+    const closeModal = useCallback(() => {
+        setModalState(prev => ({ ...prev, isOpen: false }));
+    }, []);
+
+    const triggerModal = (type, title, message) => {
+        setModalState({ isOpen: true, type, title, message });
+    };
+
     // NEW: State for the generated Reference Number
     const [referenceNumber, setReferenceNumber] = useState(null);
 
@@ -612,7 +656,7 @@ const EnrollmentForm = () => {
         } else {
             setData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : finalValue }));
         }
-    }, []); // No dependencies needed due to functional state update
+    }, []); 
 
     // MEMOIZED: File handlers
     const handlePhotoUpload = useCallback((url) => setData(prev => ({ ...prev, studentPhotoUrl: url })), []);
@@ -653,12 +697,12 @@ const EnrollmentForm = () => {
         }
         
         if (!captchaToken && !existingId) { 
-            alert("Please complete the 'I am not a robot' verification.");
+            triggerModal('warning', 'Verification Required', "Please complete the 'I am not a robot' verification before submitting.");
             return;
         }
 
         if (!isFormValid()) {
-            alert("Please fix errors in the form (e.g., Invalid Phone Number)");
+            triggerModal('error', 'Incomplete Information', "Please fix the errors in the form or fill out all required fields (marked with *).");
             return;
         }
         
@@ -695,7 +739,8 @@ const EnrollmentForm = () => {
                         .replace(/\s+/g, '-');
                 };
 
-                const uniqueId = `${cleanStr(data.lastName)}-${cleanStr(data.firstName)}-${data.dob}`;
+				// LAST NAME - FIRST NAME - DOB - SCHOOL YEAR
+				const uniqueId = `${cleanStr(data.lastName)}-${cleanStr(data.firstName)}-${data.dob}-${data.schoolYear}`;
                 
                 await setDoc(doc(db, "enrollments", uniqueId), { 
                     ...payload, 
@@ -704,7 +749,6 @@ const EnrollmentForm = () => {
                 });
             }
             
-            // Set the generated ref number to state so we can display it in the success screen
             setReferenceNumber(finalRefNumber);
             setShowReview(false);
             setSubmitted(true);
@@ -712,10 +756,22 @@ const EnrollmentForm = () => {
         } catch (error) {
             console.error("Submission Error:", error);
             
-            if (error.code === 'permission-denied') {
-                alert("Submission Failed: It appears this student is already enrolled. Please contact the Registrar.");
+            // CUSTOM ERROR HANDLING VIA MODAL
+            if (error.code === 'permission-denied' || error.message.includes('permission-denied')) {
+                // Close review modal first
+                setShowReview(false);
+                triggerModal(
+                    'warning', 
+                    'Application Already Exists', 
+                    'It appears this student has already submitted an application for this school year. Please check your status on the Main Page or contact the registrar.'
+                );
             } else {
-                alert("Error submitting form. Please check your internet connection.");
+                setShowReview(false);
+                triggerModal(
+                    'error', 
+                    'Submission Failed', 
+                    'An error occurred while submitting the form. Please check your internet connection and try again.'
+                );
             }
         }
         setLoading(false);
@@ -732,7 +788,7 @@ const EnrollmentForm = () => {
                     </div>
                     <h2 className="text-2xl font-black text-slate-900 mb-2">{existingId ? 'Updated Successfully!' : 'Pre-Enrolled Successfully!'}</h2>
                     
-                    {/* --- NEW REFERENCE NUMBER CARD --- */}
+                    {/* --- REFERENCE NUMBER CARD --- */}
                     {referenceNumber && (
                         <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl mb-8 relative overflow-hidden group shadow-sm mt-6 text-left">
                             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
@@ -745,7 +801,7 @@ const EnrollmentForm = () => {
                                     type="button"
                                     onClick={() => {
                                         navigator.clipboard.writeText(referenceNumber);
-                                        alert("Reference number copied to clipboard!");
+                                        triggerModal('success', 'Copied!', 'Reference number copied to clipboard.');
                                     }}
                                     className="p-2 bg-white rounded-lg shadow-sm text-indigo-500 hover:text-indigo-700 hover:bg-indigo-100 transition-colors"
                                     title="Copy to Clipboard"
@@ -781,12 +837,28 @@ const EnrollmentForm = () => {
                         Back to Home
                     </Link>
                 </div>
+                {/* Modals can exist here too if needed, but submitted state usually doesn't trigger errors */}
+                <StatusModal 
+                    isOpen={modalState.isOpen}
+                    type={modalState.type}
+                    title={modalState.title}
+                    message={modalState.message}
+                    onClose={closeModal}
+                />
             </div>
         );
     }
 
     return (
         <div className="min-h-screen font-sans text-slate-800 pb-20 relative selection:bg-indigo-100 selection:text-indigo-900 bg-slate-50">
+
+            <StatusModal 
+                isOpen={modalState.isOpen}
+                type={modalState.type}
+                title={modalState.title}
+                message={modalState.message}
+                onClose={closeModal}
+            />
 
             {showReview && (
                 <ReviewModal
@@ -798,14 +870,14 @@ const EnrollmentForm = () => {
                 />
             )}
 
-            {/* LIGHT AURORA BACKGROUND */}
+            {/* STATIC AURORA BACKGROUND */}
             <AuroraBackground />
 
             {/* HEADER */}
             <div className="relative z-10 pt-12 pb-10 px-6">
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-6">
-                        <div className="bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-white">
+                        <div className="bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white">
                             <img src="/1.png" alt="Logo" className="w-14 h-14 object-contain drop-shadow-sm" />
                         </div>
                         <div className="text-slate-900">
@@ -821,7 +893,7 @@ const EnrollmentForm = () => {
 
             {/* FORM CONTAINER */}
             <div className="max-w-5xl mx-auto px-4 relative z-20">
-                <form onSubmit={handleInitialSubmit} className="bg-white/80 backdrop-blur-xl border border-white rounded-[2.5rem] p-6 md:p-12 shadow-2xl shadow-indigo-100/40">
+                <form onSubmit={handleInitialSubmit} className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[2.5rem] p-6 md:p-12 shadow-2xl shadow-indigo-100/40">
 
                     <div className="opacity-0 absolute -z-10 top-0 left-0 h-0 w-0 overflow-hidden">
                          <label htmlFor="website_url">Website</label>
@@ -851,6 +923,7 @@ const EnrollmentForm = () => {
                         onPhotoRemove={handlePhotoRemove}
                         onPsaUpload={handlePsaUpload}
                         onPsaRemove={handlePsaRemove}
+                        setModal={setModalState} // Pass modal trigger to subcomponent
                     />
 
                     <AddressInfo 
@@ -877,7 +950,7 @@ const EnrollmentForm = () => {
                     />
 
                     {/* SUBMIT SECTION */}
-                    <div className="bg-slate-50/50 backdrop-blur-sm rounded-[2rem] p-8 md:p-12 border border-slate-200 shadow-inner mt-12 mb-4">
+                    <div className="bg-slate-50/80 backdrop-blur-sm rounded-[2rem] p-8 md:p-12 border border-slate-200 shadow-inner mt-12 mb-4">
                         <div className="mb-10 text-center">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6 block">Printed Parent/Guardian Name</label>
                             <div className="flex flex-wrap justify-center gap-4">
@@ -899,10 +972,10 @@ const EnrollmentForm = () => {
                         <button
                             type="submit"
                             disabled={!isFormValid() || loading || (!existingId && !captchaToken)}
-                            className={`w-full h-14 rounded-2xl font-black text-lg text-white shadow-xl transform transition-all duration-300 flex items-center justify-center gap-3 active:scale-95
+                            className={`w-full h-16 rounded-2xl font-black text-lg text-white shadow-xl transform transition-all duration-300 flex items-center justify-center gap-3 active:scale-95
                                 ${!isFormValid() || loading || (!existingId && !captchaToken)
                                     ? 'bg-slate-300 cursor-not-allowed text-slate-500 shadow-none'
-                                    : 'bg-gradient-to-r from-[#800000] to-red-600 hover:to-red-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-200'
+                                    : 'bg-gradient-to-r from-[#800000] via-red-600 to-[#800000] bg-[length:200%_auto] hover:bg-right transition-[background-position] hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-900/20'
                                 }`}
                         >
                             {loading ? (
@@ -939,7 +1012,7 @@ const EnrollmentForm = () => {
 
 const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
     const DataRow = ({ label, value }) => (
-        <div className="flex flex-col sm:flex-row sm:justify-between border-b border-slate-100 py-3 last:border-0 hover:bg-slate-50 px-2 rounded-lg transition-colors">
+        <div className="flex flex-col sm:flex-row sm:justify-between border-b border-slate-100 py-3 last:border-0 hover:bg-slate-50 px-3 rounded-lg transition-colors">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 sm:mb-0">{label}</span>
             <span className="text-sm font-bold text-slate-900 text-right break-words">{value || <span className="text-slate-400 font-normal italic">N/A</span>}</span>
         </div>
@@ -951,7 +1024,7 @@ const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
                 {/* Modal Header */}
                 <div className="p-6 bg-white border-b border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-[#800000] text-white rounded-full flex items-center justify-center shadow-lg shadow-red-100">
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#800000] to-red-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-100">
                             {isUpdateMode ? '🔄' : '📋'}
                         </div>
                         <div>
@@ -959,18 +1032,18 @@ const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
                             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Verify Details</p>
                         </div>
                     </div>
-                    <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-red-500 transition-colors">✕</button>
+                    <button onClick={onCancel} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-red-500 transition-colors">✕</button>
                 </div>
 
                 {/* Content */}
                 <div className="p-8 overflow-y-auto space-y-8 custom-scrollbar bg-slate-50/50">
                     <div className="space-y-6">
                         {/* WARNING NOTICE */}
-                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3">
+                        <div className="bg-amber-50 border border-amber-200 p-5 rounded-xl flex items-start gap-4 shadow-sm">
                             <span className="text-2xl">⚠️</span>
                             <div>
-                                <h4 className="text-amber-600 font-black text-xs uppercase mb-1">Final Review Required</h4>
-                                <p className="text-amber-700/80 text-[11px] leading-relaxed">
+                                <h4 className="text-amber-700 font-black text-xs uppercase mb-1">Final Review Required</h4>
+                                <p className="text-amber-700/80 text-[11px] leading-relaxed font-medium">
                                     Please double-check all information below. 
                                     <strong className="text-amber-800"> Once submitted, you cannot edit these details </strong> 
                                     unless you visit the Registrar's Office.
@@ -978,9 +1051,9 @@ const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                            <h4 className="text-red-500 font-bold uppercase text-[10px] tracking-widest mb-3 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Enrollment Details
+                        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                            <h4 className="text-red-500 font-bold uppercase text-[10px] tracking-widest mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500"></span> Enrollment Details
                             </h4>
                             <DataRow label="SY / Grade" value={`${data.schoolYear} - ${data.gradeLevel}`} />
                             <DataRow label="Type / Status" value={`${data.studentType} (${data.lrnStatus})`} />
@@ -1009,14 +1082,14 @@ const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
                         </div>
                     </div>
 
-                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-xs text-red-600 text-center leading-relaxed font-medium">
+                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-xs text-red-600 text-center leading-relaxed font-bold">
                         By clicking confirm, I hereby certify that the above information is true and correct.
                     </div>
                 </div>
 
                 {/* Footer */}
                 <div className="p-6 border-t border-slate-100 bg-white flex gap-4">
-                    <button onClick={onCancel} className="flex-1 py-4 rounded-xl font-bold text-slate-500 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-800 transition-colors">
+                    <button onClick={onCancel} className="flex-1 py-4 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-sm">
                         Back to Edit
                     </button>
                     <button onClick={onConfirm} disabled={loading} className="flex-1 py-4 rounded-xl font-bold text-white bg-gradient-to-r from-[#800000] to-red-600 hover:to-red-500 shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 active:scale-95">

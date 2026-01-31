@@ -1,0 +1,25 @@
+THE NEXT GENERATION OF LEARNING: WHAT’S COMING TO OUR LMS
+
+Our digital classroom is evolving. The developer is currently engineering a suite of intelligent tools designed to reduce administrative burdens for teachers and provide a more robust academic experience for students.
+
+Here is a sneak peek at the features currently under development:
+
+📚 DepEd-Aligned Content Expansion
+We are enriching our digital library. Our team is working on adding comprehensive new content for every subject, ensuring every module and resource perfectly aligns with the latest DepEd standards and K-12 curriculum requirements.
+
+🎨 Next-Gen Automated Slide Designer
+Teachers will soon have more creative power. We are expanding our Automated PowerPoint Creation tool with a wider variety of professional designs and layouts, allowing educators to generate stunning, interactive presentations in seconds.
+
+📊 Instant Grade Synchronization
+The developer is building a bridge between assessments and records. Once launched, scores from quizzes and exams will be automatically encoded into student gradesheets the moment they are submitted, ensuring real-time feedback and 100% accuracy.
+
+📈 Intelligent Cumulative Grade Sheets
+Manual calculation is becoming a thing of the past. We are developing a system that automatically generates cumulative grade sheets for teachers, pulling data from every subject a student is enrolled in to provide a total academic overview.
+
+🏆 Automated Grade-Level Ranking
+Success deserves recognition. As soon as cumulative grade sheets are generated, the system will automatically calculate and generate student rankings per grade level, providing instant insights into academic excellence across the campus.
+
+⏱️ Daily Digital Attendance Tracker
+We are introducing a streamlined Daily Attendance Checker. This upcoming tool will allow teachers to maintain digital daily records with a single click, ensuring attendance history is always organized, searchable, and secure.
+
+These updates are currently in the laboratory. We are committed to building an LMS that doesn't just manage learning—it accelerates it. Stay tuned for the future of education!

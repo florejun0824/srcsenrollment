@@ -1,0 +1,22 @@
+THE FUTURE OF CAMPUS LOGISTICS: THE SMART SCHEDULER
+
+Organizing a school's heartbeat—its schedule—is a complex puzzle. The developer is currently building an intelligent Scheduling & Loading Engine designed to transform how administrators manage time, subjects, and human resources.
+
+Here is what is currently in development for the Scheduler:
+
+🏫 Strengthened SHS Curriculum Integration
+We are preparing for the future of Senior High School. The developer is integrating the specific subject-loading requirements of the "New Strengthened SHS Curriculum" into the core scheduler.
+This will provide administrators with built-in templates and guardrails that align perfectly with new DepEd mandates, making it easier to craft daily class schedules that meet every academic requirement.
+
+🤖 AI-Powered Scheduling Assistance
+The developer is introducing Artificial Intelligence to the administrative suite. We are building an AI Assistant that analyzes teacher specializations, room availability, and subject hours to automatically suggest optimized schedules.
+This AI integration aims to eliminate "schedule clashing" and ensure a balanced workload for teachers, significantly reducing the manual labor usually required during the enrollment season.
+
+📊 Automated Teacher Loading & Schedules
+Say goodbye to manual spreadsheets. Once the subject loading is finalized, the system will automatically generate individual teacher schedules.
+Educators will be able to view their daily time-blocks, assigned rooms, and subject loads directly from their portal, with any updates reflecting in real-time across the entire campus system.
+
+📅 Dynamic Class Calendars
+We are moving toward a living calendar system. The upcoming scheduler will sync with the student and parent portals, ensuring that any changes to the class schedule are instantly visible to the students involved.
+
+From AI assistance to curriculum alignment, we are building a scheduler that thinks ahead. These features are currently in the development pipeline to ensure our school runs with precision and ease!

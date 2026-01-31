@@ -343,7 +343,7 @@ const PortalPage = () => {
                                 Catholic School
                             </h1>
                             <p className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-[0.2em] md:tracking-[0.3em] pt-1">
-                                Official Digital Portal
+                                Official Digital Ecosystem
                             </p>
                         </div>
                     </div>
@@ -401,7 +401,7 @@ const PortalPage = () => {
                     </div>
                     <div className="px-4 py-1.5 rounded-full bg-white/40 border border-white/50 shadow-sm backdrop-blur-[2px]">
                         <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                            © {new Date().getFullYear()} SRCS System. All Rights Reserved.
+                            © {new Date().getFullYear()} SRCS Digital Ecosystem. All Rights Reserved.
                         </p>
                     </div>
                 </footer>
