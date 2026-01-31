@@ -45,7 +45,6 @@ const GradebookManager = () => {
     const [manualSubjectName, setManualSubjectName] = useState('');
 
     // --- OPTIMIZATION: STATE TRACKING ---
-    // Stores the stringified version of records upon fetch to compare against on save
     const lastSavedState = useRef({}); 
 
     // --- MODAL STATES ---
@@ -131,11 +130,10 @@ const GradebookManager = () => {
             }
             setLoadingState({ show: true, message: 'Loading Class Record...' });
             try {
-                // OPTIMIZATION: Filter by Section as well to reduce reads
                 const enrollQ = query(
                     collection(db, "enrollments"), 
                     where("gradeLevel", "==", filters.gradeLevel),
-                    where("section", "==", filters.section) // Added Section Filter
+                    where("section", "==", filters.section)
                 );
                 const enrollSnap = await getDocs(enrollQ);
                 setEnrolledStudents(enrollSnap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -171,10 +169,8 @@ const GradebookManager = () => {
         
         sortAndSetRecords(data);
         
-        // OPTIMIZATION: Snapshot the data for dirty checking
         const snapshot = {};
         data.forEach(r => {
-            // Create a signature based on editable fields
             snapshot[r.id] = JSON.stringify({
                 name: r.studentName,
                 gender: r.gender,
@@ -230,7 +226,6 @@ const GradebookManager = () => {
         try {
             const { meta, records: extractedRecords } = await parseCumulativeGrades(selectedFile);
             
-            // --- VALIDATION: CHECK GRADE & SECTION ---
             if (meta.gradeSection) {
                 const fileInfo = meta.gradeSection.toUpperCase().replace(/[^A-Z0-9]/g, '');
                 const currentGrade = filters.gradeLevel.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -241,7 +236,6 @@ const GradebookManager = () => {
 
                 if (!matchesGrade || !matchesSection) {
                     setLoadingState({ show: false, message: '' });
-                    
                     setConfirmModal({
                         show: true,
                         title: 'File Mismatch Detected',
@@ -252,7 +246,6 @@ const GradebookManager = () => {
                     return; 
                 }
             }
-            // ----------------------------------------
 
             let detectedSubject = null;
             if (meta && meta.subject) detectedSubject = meta.subject;
@@ -336,9 +329,6 @@ const GradebookManager = () => {
         setLoadingState({ show: false, message: '' });
     };
 
-    // --- SAVE / DELETE HANDLERS ---
-    
-    // ACTUAL SAVE LOGIC (OPTIMIZED)
     const performSave = async () => {
         setConfirmModal({ ...confirmModal, show: false });
         setLoadingState({ show: true, message: 'Saving Records...' });
@@ -353,7 +343,6 @@ const GradebookManager = () => {
                 const docId = rec.id || `${sId}_${filters.schoolYear}_${filters.quarter.replace(/\s/g, '')}`;
                 const finalAverage = calculateRowAverage(rec.grades);
 
-                // Create the payload
                 const payload = {
                     studentId: sId,
                     studentName: rec.studentName.toUpperCase(), 
@@ -368,14 +357,12 @@ const GradebookManager = () => {
                     updatedAt: new Date()
                 };
 
-                // DIRTY CHECKING: Generate signature
                 const currentSignature = JSON.stringify({
                     name: payload.studentName,
                     gender: payload.gender,
                     grades: payload.grades
                 });
 
-                // Compare with snapshot (using docId if it existed, otherwise it's new)
                 const originalSignature = rec.id ? lastSavedState.current[rec.id] : null;
 
                 if (currentSignature !== originalSignature) {
@@ -397,7 +384,6 @@ const GradebookManager = () => {
         setLoadingState({ show: false, message: '' });
     };
 
-    // TRIGGER FUNCTION
     const handleSaveChanges = () => {
         setConfirmModal({
             show: true,
@@ -478,7 +464,6 @@ const GradebookManager = () => {
     };
 
     // --- SUB-COMPONENTS ---
-    
     const LoadingOverlay = () => {
         if (!loadingState.show) return null;
         return (
@@ -620,7 +605,8 @@ const GradebookManager = () => {
     }
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-600 pb-28 md:pb-10 relative overflow-x-hidden">
+        // INCREASED PADDING BOTTOM TO pb-52 to allow scrolling past the floating bar
+        <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-600 pb-52 md:pb-10 relative overflow-x-hidden">
             <div className="fixed top-0 left-0 w-full h-[50vh] bg-gradient-to-b from-indigo-50/50 to-transparent -z-10 pointer-events-none"></div>
             <div className="fixed -top-40 -right-40 w-96 h-96 bg-purple-100/50 rounded-full blur-3xl -z-10 pointer-events-none"></div>
 
@@ -646,7 +632,6 @@ const GradebookManager = () => {
                          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className={`md:hidden p-2.5 rounded-xl transition-all border ${mobileMenuOpen ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-white border-slate-200 text-slate-600'}`}>
                             <Filter className="w-5 h-5" />
                          </button>
-                         
                     </div>
                 </div>
             </header>
@@ -874,22 +859,23 @@ const GradebookManager = () => {
                 )}
             </main>
 
-            <div className={`fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-indigo-50 p-4 pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:hidden transition-transform duration-300 z-50 ${isEditing || records.length > 0 ? 'translate-y-0' : 'translate-y-full'}`}>
+            {/* UPDATED MOBILE ACTION BAR - FLOATING PANEL */}
+            <div className={`fixed bottom-20 left-4 right-4 bg-white/90 backdrop-blur-xl border border-indigo-50/50 p-3 rounded-[2rem] shadow-2xl md:hidden transition-all duration-300 z-40 ${isEditing || records.length > 0 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0 pointer-events-none'}`}>
                 {isEditing ? (
                     <div className="flex gap-4">
-                        <button onClick={() => handleAddRow(-1)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all">
+                        <button onClick={() => handleAddRow(-1)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all">
                             <UserPlus className="w-4 h-4" /> Add Student
                         </button>
-                        <button onClick={handleSaveChanges} className="flex-[2] bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 active:scale-95 transition-all">
+                        <button onClick={handleSaveChanges} className="flex-[2] bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 active:scale-95 transition-all">
                             <Save className="w-4 h-4" /> Save Changes
                         </button>
                     </div>
                 ) : (
                     <div className="flex gap-4">
-                         <button onClick={() => setMobileMenuOpen(true)} className="flex-1 bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm">
+                         <button onClick={() => setMobileMenuOpen(true)} className="flex-1 bg-white border border-slate-200 text-slate-600 py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm">
                             <Filter className="w-4 h-4" /> Filters
                         </button>
-                        <button onClick={() => setIsEditing(true)} className="flex-[2] bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 active:scale-95 transition-all">
+                        <button onClick={() => setIsEditing(true)} className="flex-[2] bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 active:scale-95 transition-all">
                             <Edit className="w-4 h-4" /> Edit Gradebook
                         </button>
                     </div>

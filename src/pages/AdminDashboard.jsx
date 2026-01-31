@@ -1,5 +1,5 @@
 // src/pages/AdminDashboard.jsx
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
@@ -45,6 +45,8 @@ const styles = `
     transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.0);
     will-change: width;
   }
+  /* Custom Scrollbar to hide on mobile but allow scrolling */
+  .custom-scrollbar::-webkit-scrollbar { width: 0px; height: 0px; }
 `;
 
 // --- SHARED AURORA BACKGROUND ---
@@ -57,7 +59,7 @@ const AuroraBackground = () => (
     </div>
 );
 
-// --- COMPONENT: CINEMATIC ADMIN SIDEBAR ---
+// --- COMPONENT: CINEMATIC ADMIN SIDEBAR (DESKTOP) ---
 const AdminSidebar = ({ activeTab, setActiveTab, onLogout }) => {
     const navItems = [
         { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -245,7 +247,7 @@ const DashboardLayout = ({ user }) => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [filterStatus, setFilterStatus] = useState('All');
     const [selectedYear, setSelectedYear] = useState('2026-2027');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile Menu State
     
     // --- MODAL STATE ---
     const [verifyModal, setVerifyModal] = useState(null); 
@@ -291,10 +293,7 @@ const DashboardLayout = ({ user }) => {
 
     const handleApprove = async (id, studentID, section) => {
         confirmAction("Confirm Enrollment?", "This student will be officially enrolled.", async () => {
-            // WRITE
             await updateDoc(doc(db, "enrollments", id), { status: 'Enrolled', studentID, section, enrolledAt: new Date() });
-            
-            // OPTIMISTIC UPDATE
             updateStudentLocally(id, { status: 'Enrolled', studentID, section, enrolledAt: new Date() });
             setVerifyModal(null);
         }, 'info');
@@ -302,10 +301,7 @@ const DashboardLayout = ({ user }) => {
 
     const handleReject = async (id) => {
         confirmAction("Reject Application?", "This action cannot be undone.", async () => {
-            // WRITE
             await updateDoc(doc(db, "enrollments", id), { status: 'Rejected' });
-            
-            // OPTIMISTIC UPDATE
             updateStudentLocally(id, { status: 'Rejected' });
             setVerifyModal(null);
         });
@@ -313,10 +309,7 @@ const DashboardLayout = ({ user }) => {
 
     const handleDelete = async (student) => {
         confirmAction("Delete Record?", `Permanently delete ${student.lastName}?`, async () => {
-            // WRITE
             await deleteDoc(doc(db, "enrollments", student.id));
-            
-            // OPTIMISTIC UPDATE
             removeStudentLocally(student.id);
         });
     };
@@ -371,52 +364,56 @@ const DashboardLayout = ({ user }) => {
         return { total: totalActive, pending, enrolled, rejected, cancelled };
     }, [students]);
 
-    const schoolYearOptions = Array.from({ length: 10 }, (_, i) => { const y = new Date().getFullYear() - 1 + i; return `${y}-${y+1}`; });
-
     return (
         <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-slate-600 relative">
             <style>{styles}</style>
             <AuroraBackground />
 
-            {/* SIDEBAR (CINEMATIC) */}
+            {/* 1. CINEMATIC SIDEBAR (DESKTOP) */}
             <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => signOut(auth)} />
 
-            {/* MOBILE OVERLAY */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
-
-            {/* MAIN CONTENT */}
+            {/* 2. MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col h-full relative overflow-hidden z-10">
                 
-                {/* TOP HEADER */}
-                <div className="bg-white/40 backdrop-blur-md border-b border-white/50 h-24 flex items-center justify-between px-4 md:px-8 shrink-0 shadow-sm pointer-events-none">
-                    <div className="flex flex-col justify-center h-full pointer-events-auto">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-                            <span>Admin Workspace</span>
-                            <span className="text-[#800000]">></span>
-                            <span className="text-[#800000]">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</span>
+                {/* HEADER - Updated to fix Mobile View */}
+                <div className="bg-white/40 backdrop-blur-md border-b border-white/50 h-auto md:h-24 flex flex-col md:flex-row items-center justify-between px-4 py-4 md:px-8 shrink-0 shadow-sm pointer-events-none sticky top-0 z-40">
+                    
+                    {/* Header Title Area - Responsive */}
+                    <div className="flex flex-row items-center justify-between w-full md:w-auto pointer-events-auto">
+                        <div className="flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                                <span>Admin</span>
+                                <span className="text-[#800000]">></span>
+                                <span className="text-[#800000]">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</span>
+                            </div>
+                            <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none md:leading-normal">
+                                Dashboard Overview
+                            </h2>
                         </div>
-                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Dashboard Overview</h2>
+                        
+                        {/* Mobile Menu Toggle (Only visible on mobile) */}
+                        <button className="md:hidden p-2 text-slate-600" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu className="w-6 h-6" />
+                        </button>
                     </div>
 
-                    <div className="flex items-center gap-4 pointer-events-auto">
-                        <div className="relative group">
+                    {/* Search Bar Area */}
+                    <div className="flex items-center gap-4 pointer-events-auto mt-4 md:mt-0 w-full md:w-auto">
+                        <div className="relative group w-full md:w-auto">
                             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#800000] transition-colors" />
                             <input 
                                 type="text" 
                                 placeholder="Search..." 
                                 value={search} 
                                 onChange={(e) => setSearch(e.target.value)} 
-                                className="pl-10 pr-4 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-[#800000] transition-all w-64 shadow-sm"
+                                className="pl-10 pr-4 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-[#800000] transition-all w-full md:w-64 shadow-sm"
                             />
                         </div>
-                        <button className="md:hidden p-2 text-slate-600" onClick={() => setIsSidebarOpen(true)}>
-                            <Menu className="w-6 h-6" />
-                        </button>
                     </div>
                 </div>
 
                 {/* SCROLLABLE CONTENT */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pb-24">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pb-32 md:pb-8"> {/* Added bottom padding for mobile dock */}
                     <AnimatePresence mode="wait">
                         
                         {/* DASHBOARD OVERVIEW (STATS ONLY) */}
@@ -426,7 +423,7 @@ const DashboardLayout = ({ user }) => {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8"
+                                className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8"
                             >
                                 <StatCard title="Enrolled" value={stats.enrolled} icon={CheckCircle2} bgClass="bg-emerald-500" colorClass="text-white" />
                                 <StatCard title="Pending" value={stats.pending} icon={AlertCircle} bgClass="bg-amber-500" colorClass="text-white" />
@@ -449,12 +446,12 @@ const DashboardLayout = ({ user }) => {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Manage Applications</p>
                                             </div>
                                         </div>
-                                        <div className="flex gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 overflow-x-auto max-w-full">
+                                        <div className="flex gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 overflow-x-auto max-w-full w-full sm:w-auto">
                                             {['All', 'Pending', 'Enrolled', 'Rejected', 'Cancelled'].map(status => (
                                                 <button 
                                                     key={status} 
                                                     onClick={() => setFilterStatus(status)} 
-                                                    className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap 
+                                                    className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap flex-1 sm:flex-none 
                                                     ${filterStatus === status 
                                                         ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' 
                                                         : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
@@ -466,12 +463,12 @@ const DashboardLayout = ({ user }) => {
                                     </div>
                                     <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
                                         {loading ? (
-                                            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3 animate-pulse">
+                                            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3 animate-pulse py-10">
                                                 <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                                                 <span className="text-xs font-bold uppercase tracking-widest">Loading Records...</span>
                                             </div>
                                         ) : filtered.length === 0 ? (
-                                            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-4">
+                                            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-4 py-10">
                                                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                                                     <FolderOpen className="w-8 h-8" />
                                                 </div>
@@ -510,6 +507,58 @@ const DashboardLayout = ({ user }) => {
                     </AnimatePresence>
                 </div>
             </div>
+
+            {/* 3. MOBILE BOTTOM NAV (Glass Dock) - Added Feature */}
+            <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[320px]">
+                <div className="neural-glass rounded-full px-4 py-3 flex items-center justify-between shadow-2xl mx-4">
+                    <button onClick={() => setActiveTab('dashboard')} className={`p-2 transition-colors ${activeTab === 'dashboard' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                        <LayoutDashboard className="w-6 h-6" fill={activeTab === 'dashboard' ? "currentColor" : "none"} />
+                    </button>
+                    <button onClick={() => setActiveTab('queue')} className={`p-2 transition-colors ${activeTab === 'queue' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                        <FolderOpen className="w-6 h-6" fill={activeTab === 'queue' ? "currentColor" : "none"} />
+                    </button>
+                     <button onClick={() => setActiveTab('students')} className={`p-2 transition-colors ${activeTab === 'students' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                        <Users className="w-6 h-6" fill={activeTab === 'students' ? "currentColor" : "none"} />
+                    </button>
+                    <button onClick={() => setActiveTab('sections')} className={`p-2 transition-colors ${activeTab === 'sections' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                        <Layers className="w-6 h-6" fill={activeTab === 'sections' ? "currentColor" : "none"} />
+                    </button>
+                     <button onClick={() => setActiveTab('analytics')} className={`p-2 transition-colors ${activeTab === 'analytics' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                        <BarChart3 className="w-6 h-6" fill={activeTab === 'analytics' ? "currentColor" : "none"} />
+                    </button>
+                </div>
+            </div>
+
+            {/* MOBILE SIDE MENU OVERLAY (For Extra Options like Logout) */}
+            <AnimatePresence>
+                {isSidebarOpen && (
+                    <>
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="fixed inset-0 bg-slate-900/60 z-[60] backdrop-blur-sm lg:hidden"
+                        />
+                        <motion.div
+                            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="fixed inset-y-0 right-0 w-3/4 max-w-sm bg-white z-[70] p-6 shadow-2xl lg:hidden flex flex-col"
+                        >
+                            <div className="flex items-center justify-between mb-8">
+                                <span className="text-lg font-black text-slate-900">Menu</span>
+                                <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-slate-100 rounded-full"><XCircle className="w-5 h-5" /></button>
+                            </div>
+                            <div className="space-y-2">
+                                <Link to="/enrollment-landing" className="w-full flex items-center gap-3 p-4 rounded-xl bg-slate-50 text-slate-700 font-bold">
+                                    <ArrowLeft className="w-5 h-5" /> Back to Menu
+                                </Link>
+                                <button onClick={() => signOut(auth)} className="w-full flex items-center gap-3 p-4 rounded-xl bg-red-50 text-red-600 font-bold">
+                                    <LogOut className="w-5 h-5" /> Log Out
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* MODALS */}
             {verifyModal && <VerificationModal 
