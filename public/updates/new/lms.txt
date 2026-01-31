@@ -1,0 +1,29 @@
+SRCS LMS v10.3: A New Era of Speed, Beauty, and Intelligence
+We aren't just updating your Learning Management System; we are reimagining how you teach and learn. Version 10.3 represents our biggest leap forward yet—a seamless blend of raw performance, stunning visuals, and next-generation AI that anticipates your needs.
+
+⚡ Uncompromised Performance
+Fluidity on Any Device. We believe access to education shouldn't depend on your hardware. We’ve completely re-engineered our core, stripping away heavy 3D rendering engines and complex animations that slowed you down. The result? An interface that feels instantaneous and buttery smooth, whether you're on a high-end desktop or a budget mobile device.
+
+🎨 Your Workspace, Your Rules
+Introducing Adaptive Themes: Full & Lite. Why choose between aesthetics and performance when you can have both?
+
+Full Immersion: Dive into the complete "Neo-Glass" experience with dynamic particles, blurs, and cinematic motion.
+
+Lite Mode: Need maximum speed and battery life? Switch to Lite Mode for a crisp, distraction-free interface that flies.
+
+🧠 AI That Actually Thinks
+Powered by Deepseek R1T2 Chimera. Your digital teaching assistant just got a massive IQ boost. With the integration of the Deepseek R1T2 Chimera model, the LMS now understands context deeper and faster than ever before.
+
+Smarter Content: Exams, quizzes, and lesson plans are now generated with unprecedented accuracy and curriculum alignment.
+
+Visual Imagination: Don’t just tell them—show them. Our new AI Image Generation automatically creates stunning visuals to accompany your lessons, bringing complex concepts to life instantly.
+
+🗳️ Empowering Student Voices
+The Election Command Center. Student leadership starts here. We’ve introduced a robust Election Module that makes organizing student government or grade-level elections effortless. Manage candidates, cast secure votes, and watch real-time results roll in—democracy, digitized.
+
+🛠️ Tools for the Modern Educator
+Presentation Architect: Stop fighting with formatting. Our Automated Slide Generator now features a Design Picker, letting you match the visual style of your slides to your subject matter in a single click.
+
+Ironclad Security: We’ve fortified our data protocols to banking-grade standards. Your data—and your students' privacy—has never been safer.
+
+Experience the difference today. Welcome to the future of SRCS.

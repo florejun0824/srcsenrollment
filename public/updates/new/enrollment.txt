@@ -1,0 +1,30 @@
+WELCOME TO A BRIGHTER ENROLLMENT EXPERIENCE
+
+We are thrilled to unveil a completely reimagined enrollment process designed with one goal in mind: making your journey into our academic community as effortless and welcoming as possible.
+
+Here is what awaits you in this major update:
+
+✨ A Fresh, Inviting New Look
+We have moved away from the heavy dark-themed interface to a crisp, clean, and modern light UI. This redesign isn't just about aesthetics—it offers better readability, a warmer atmosphere, and a more intuitive navigation experience that feels natural from the very first click.
+
+📱 Enroll From Anywhere
+Busy schedule? No problem. Our fully responsive mobile design puts the power of enrollment in your pocket. Whether you are on a smartphone, tablet, or desktop, the experience is seamless, fast, and optimized for your device.
+
+🚀 Smart, Automated Form Generation
+Say goodbye to repetitive handwriting! Once your profile is complete, our system automatically generates your official PDF enrollment forms. It’s magic—your data populates instantly, ready for printing or digital submission.
+
+✅ Zero-Error Validation
+We know how frustrating "form errors" can be. Our new Real-Time Validation engine actively checks for duplicate LRNs and missing requirements while you type. It guides you gently to ensure your application is perfect before you even hit submit.
+
+🔍 Track Your Journey in Real-Time
+Never wonder "Did they get my application?" again. Upon pre-enrollment, you will receive a unique Reference Number. Use this to instantly track your current status—from submission to final approval—giving you total peace of mind.
+
+Checking status...
+• Pre-Enrolled
+• Assessing
+• Enrolled!
+
+🔒 Ironclad Data Privacy
+Your trust is our priority. We have integrated enhanced encryption protocols for all personal data submissions. Fully compliant with the Data Privacy Act, our system ensures your sensitive information remains secure, private, and protected at every step.
+
+Ready to begin? The future of student enrollment starts here.

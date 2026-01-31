@@ -12,12 +12,16 @@ import {
     Lock, 
     X,
     MonitorPlay,
-    CalendarClock 
+    CalendarClock,
+    Rocket
 } from 'lucide-react';
+
+// IMPORT THE NEW COMPONENT
+import Roadmap from './Roadmap';
 
 // --- CONFIGURATION ---
 const URLS = {
-    lms: "https://srcsdigital.web.app/", // UPDATED URL
+    lms: "https://srcsdigital.web.app/",
     finance: "https://srcsledger.netlify.app/",
     scheduler: "https://san-ramon-catholic-school.web.app/"
 };
@@ -30,110 +34,133 @@ const getAcademicYear = () => {
     return `${startYear} - ${startYear + 1}`;
 };
 
-// --- SYSTEM CARDS DATA (Restored Original Details) ---
+// --- SYSTEM CARDS DATA ---
 const SYSTEM_CARDS = [
     {
         id: 'enrollment',
         title: 'Enrollment System',
-        description: 'New students and transferees start here. Begin your official registration journey.',
-        icon: <GraduationCap className="w-10 h-10" />,
+        description: 'New students and transferees start here. Begin registration.',
+        icon: <GraduationCap className="w-6 h-6 md:w-8 md:h-8" />,
         linkTo: '/enrollment-landing', 
         theme: {
-            color: 'from-red-600 to-rose-900',
-            border: 'group-hover:border-red-500/50',
-            shadow: 'hover:shadow-red-900/40',
-            iconBg: 'bg-red-500/20 text-red-200',
-            badge: { text: 'Open for Registration', style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' }
+            accent: 'text-rose-700',
+            baseGradient: 'bg-gradient-to-br from-rose-100 via-rose-50 to-white', 
+            border: 'border-rose-200 hover:border-rose-300',
+            shadow: 'hover:shadow-rose-200/60',
+            iconBg: 'bg-rose-200 text-rose-700',
+            badge: { text: 'Open Now', style: 'bg-rose-100 text-rose-800 border-rose-200' }
         }
     },
     {
         id: 'lms',
         title: 'LMS Portal',
-        description: 'Access your virtual classrooms, modules, and grading sheets.',
-        icon: <MonitorPlay className="w-10 h-10" />,
+        description: 'Virtual classrooms, modules, and grading sheets.',
+        icon: <MonitorPlay className="w-6 h-6 md:w-8 md:h-8" />,
         actionId: 'lms', 
         isBeta: true,
         theme: {
-            color: 'from-blue-600 to-indigo-900',
-            border: 'group-hover:border-blue-500/50',
-            shadow: 'hover:shadow-blue-900/40',
-            iconBg: 'bg-blue-500/20 text-blue-200',
-            badge: { text: 'Beta Environment', style: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
+            accent: 'text-blue-700',
+            baseGradient: 'bg-gradient-to-br from-blue-100 via-blue-50 to-white',
+            border: 'border-blue-200 hover:border-blue-300',
+            shadow: 'hover:shadow-blue-200/60',
+            iconBg: 'bg-blue-200 text-blue-700',
+            badge: { text: 'Beta Access', style: 'bg-blue-100 text-blue-800 border-blue-200' }
         }
     },
     {
         id: 'finance',
         title: 'Finance & Ledger',
-        description: 'Manage student accounts, tuition fees, and payment history.',
-        icon: <Wallet className="w-10 h-10" />,
+        description: 'Student accounts, tuition fees, and payments.',
+        icon: <Wallet className="w-6 h-6 md:w-8 md:h-8" />,
         actionId: 'finance', 
         theme: {
-            color: 'from-emerald-600 to-teal-900',
-            border: 'group-hover:border-emerald-500/50',
-            shadow: 'hover:shadow-emerald-900/40',
-            iconBg: 'bg-emerald-500/20 text-emerald-200',
-            badge: { text: 'Authorized Personnel', style: 'bg-rose-500/20 text-rose-300 border-rose-500/30' }
+            accent: 'text-emerald-700',
+            baseGradient: 'bg-gradient-to-br from-emerald-100 via-emerald-50 to-white',
+            border: 'border-emerald-200 hover:border-emerald-300',
+            shadow: 'hover:shadow-emerald-200/60',
+            iconBg: 'bg-emerald-200 text-emerald-700',
+            badge: { text: 'Authorized Only', style: 'bg-emerald-100 text-emerald-800 border-emerald-200' }
         }
     },
     {
         id: 'records',
         title: 'Academic Records',
-        description: 'View your official grades and academic history. (Student Login Required)',
-        icon: <FileText className="w-10 h-10" />,
+        description: 'View grades and history. (Student Login Required)',
+        icon: <FileText className="w-6 h-6 md:w-8 md:h-8" />,
         linkTo: '/student-portal', 
-        isDisabled: false,         
         theme: {
-            color: 'from-slate-600 to-slate-900',
-            border: 'group-hover:border-slate-500/50',
-            shadow: 'hover:shadow-slate-900/40',
-            iconBg: 'bg-slate-500/20 text-slate-300',
-            badge: { text: 'Student Access', style: 'bg-slate-700/50 text-slate-300 border-slate-600' } 
+            accent: 'text-indigo-700',
+            baseGradient: 'bg-gradient-to-br from-indigo-100 via-indigo-50 to-white',
+            border: 'border-indigo-200 hover:border-indigo-300',
+            shadow: 'hover:shadow-indigo-200/60',
+            iconBg: 'bg-indigo-200 text-indigo-700',
+            badge: { text: 'Student Access', style: 'bg-indigo-100 text-indigo-800 border-indigo-200' } 
         }
     },
     {
         id: 'scheduler',
         title: 'Smart Scheduler',
-        description: 'Generate class schedules and manage subject loading for faculty members.',
-        icon: <CalendarClock className="w-10 h-10" />,
+        description: 'Generate class schedules and subject loading.',
+        icon: <CalendarClock className="w-6 h-6 md:w-8 md:h-8" />,
         actionId: 'scheduler',
         theme: {
-            color: 'from-orange-500 to-amber-700',
-            border: 'group-hover:border-orange-500/50',
-            shadow: 'hover:shadow-orange-900/40',
-            iconBg: 'bg-orange-500/20 text-orange-200',
-            badge: { text: 'Admin Beta', style: 'bg-orange-500/20 text-orange-300 border-orange-500/30' }
+            accent: 'text-orange-700',
+            baseGradient: 'bg-gradient-to-br from-orange-100 via-orange-50 to-white',
+            border: 'border-orange-200 hover:border-orange-300',
+            shadow: 'hover:shadow-orange-200/60',
+            iconBg: 'bg-orange-200 text-orange-700',
+            badge: { text: 'Admin Tool', style: 'bg-orange-100 text-orange-800 border-orange-200' }
         }
     }
 ];
 
-// --- COMPONENTS ---
-
-const HeaderWidget = ({ icon, label, value }) => (
-    <div className="flex items-center gap-4 bg-white/5 backdrop-blur-2xl px-6 py-4 rounded-[2rem] border border-white/10 hover:bg-white/10 transition-all duration-300 group min-w-[160px] shadow-lg shadow-black/10">
-        <div className="p-3 bg-white/5 rounded-2xl text-slate-400 group-hover:text-white transition-colors group-hover:scale-110 duration-300">
+// --- COMPONENT: HEADER WIDGET ---
+const HeaderWidget = ({ icon, label, value, subValue, className = "" }) => (
+    <div className={`flex items-center gap-2.5 bg-white/60 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-white/60 shadow-sm min-w-[130px] h-[64px] ${className}`}>
+        <div className="p-1.5 bg-white/80 rounded-lg text-slate-500 shrink-0 shadow-sm">
             {icon}
         </div>
-        <div>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1.5">{label}</p>
-            <p className="text-base font-black text-white leading-none tracking-wide">{value}</p>
+        <div className="flex flex-col justify-center min-w-0">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5 truncate">{label}</p>
+            <p className="text-xs md:text-sm font-black text-slate-800 leading-tight tracking-tight truncate">{value}</p>
+            {subValue && <p className="text-[10px] md:text-xs font-bold text-indigo-600 leading-none mt-0.5 truncate">{subValue}</p>}
         </div>
     </div>
 );
 
+// --- COMPONENT: ROADMAP WIDGET ---
+// Accepts onClick prop to trigger the modal
+const RoadmapWidget = ({ onClick }) => (
+    <button 
+        onClick={onClick}
+        className="group relative flex items-center gap-2.5 bg-white/80 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-violet-200 shadow-sm hover:shadow-md transition-all duration-300 min-w-[130px] h-[64px] cursor-pointer hover:-translate-y-0.5 active:scale-95 overflow-hidden text-left w-full md:w-auto"
+    >
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-50/0 via-violet-100/50 to-violet-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out pointer-events-none" />
+        
+        <div className="p-1.5 bg-violet-50 text-violet-600 rounded-lg shrink-0 group-hover:scale-110 transition-transform">
+            <Rocket size={18} weight="fill" />
+        </div>
+        <div className="flex flex-col justify-center relative z-10">
+            <div className="flex items-center gap-1.5 mb-0.5">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Updates</p>
+                <span className="flex h-1.5 w-1.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-violet-500"></span>
+                </span>
+            </div>
+            <p className="text-xs md:text-sm font-black text-violet-700 leading-tight tracking-tight whitespace-nowrap group-hover:underline decoration-2 underline-offset-2">Future Roadmap</p>
+        </div>
+    </button>
+);
+
 const SystemCard = ({ item, onAction }) => {
-    // Logic to handle External vs Internal links vs Actions
     const isExternal = item.linkTo && item.linkTo.startsWith('http');
     
     let Wrapper = 'div';
     let props = {};
 
     if (item.linkTo) {
-        // Updated: Open in new tab
-        props = { 
-            target: '_blank',
-            rel: 'noopener noreferrer'
-        };
-
+        props = { target: isExternal ? '_blank' : undefined, rel: isExternal ? 'noopener noreferrer' : undefined };
         if (isExternal) {
             Wrapper = 'a';
             props.href = item.linkTo;
@@ -149,61 +176,59 @@ const SystemCard = ({ item, onAction }) => {
         <Wrapper 
             {...props}
             className={`
-                group relative overflow-hidden rounded-[3rem] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-8 
-                transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl cursor-pointer text-left
-                flex flex-col h-full min-h-[320px] w-full md:max-w-[calc(50%-1rem)] xl:max-w-[calc(33.33%-1rem)]
-                ${item.theme.border} ${item.theme.shadow}
+                group relative overflow-hidden rounded-[2rem] border p-5 md:p-6 
+                transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer text-left
+                flex flex-col h-full min-h-[220px] md:min-h-[240px] w-full
+                ${item.theme.baseGradient} ${item.theme.border} ${item.theme.shadow} backdrop-blur-[2px]
             `}
         >
-            {/* Background Gradient */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${item.theme.color} opacity-0 group-hover:opacity-10 transition-opacity duration-700 ease-out`}></div>
-            
-            {/* Content */}
+            <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent z-0 pointer-events-none" />
+
             <div className="relative z-10 flex flex-col h-full">
-                <div className="flex justify-between items-start mb-10">
-                    <div className={`w-20 h-20 rounded-[1.5rem] flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-500 shadow-inner ${item.theme.iconBg}`}>
+                <div className="flex justify-between items-start mb-6">
+                    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-105 shadow-sm ${item.theme.iconBg}`}>
                         {item.icon}
                     </div>
                     {item.theme.badge && (
-                        <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-lg ${item.theme.badge.style}`}>
+                        <span className={`px-2.5 py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest border ${item.theme.badge.style}`}>
                             {item.theme.badge.text}
                         </span>
                     )}
                 </div>
 
-                <h3 className="text-3xl font-black text-white mb-4 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all tracking-tight">
+                <h3 className="text-lg md:text-xl font-black text-slate-800 mb-2 tracking-tight group-hover:text-slate-900 transition-colors">
                     {item.title}
                 </h3>
                 
-                <p className="text-sm text-slate-400 font-medium leading-relaxed mb-12 group-hover:text-slate-300 transition-colors">
+                <p className="text-xs md:text-sm text-slate-600 font-medium leading-relaxed mb-8 group-hover:text-slate-800 transition-colors line-clamp-2">
                     {item.description}
                 </p>
 
-                <div className="mt-auto flex items-center gap-3 text-xs font-bold text-white uppercase tracking-widest opacity-60 group-hover:opacity-100 group-hover:translate-x-3 transition-all duration-500">
-                    <div className="w-8 h-[1px] bg-white/50 group-hover:w-12 transition-all duration-500" />
-                    <span>{item.isDisabled ? 'Under Development' : 'Access Portal'}</span>
+                <div className="mt-auto flex items-center gap-2 text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-80 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300">
+                    <span className={item.theme.accent}>{item.isDisabled ? 'In Development' : 'Access System'}</span>
+                    <div className={`w-4 h-[2px] ${item.theme.accent.replace('text-', 'bg-')}`} />
                 </div>
             </div>
         </Wrapper>
     );
 };
 
-const Modal = ({ isOpen, onClose, title, icon: Icon, colorTheme, children }) => {
+const Modal = ({ isOpen, onClose, title, icon: Icon, children }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-xl transition-opacity duration-500" onClick={onClose} />
-            <div className="relative bg-slate-900/90 backdrop-blur-3xl rounded-[3rem] shadow-2xl max-w-md w-full overflow-hidden animate-fade-in-up border border-white/10 ring-1 ring-white/5">
-                <div className={`p-8 border-b border-white/5 flex items-center gap-5 ${colorTheme}`}>
-                    <div className="p-4 bg-white/20 rounded-2xl shadow-sm backdrop-blur-sm text-white">
-                        <Icon size={28} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300" onClick={onClose} />
+            <div className="relative bg-white rounded-[2rem] shadow-2xl max-w-sm w-full overflow-hidden animate-fade-in-up border border-white ring-1 ring-slate-100">
+                <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
+                    <div className="p-2 bg-white rounded-xl shadow-sm text-indigo-600">
+                        <Icon size={20} />
                     </div>
-                    <h3 className="text-xl font-black text-white uppercase tracking-tight">{title}</h3>
-                    <button onClick={onClose} className="ml-auto p-3 hover:bg-white/10 rounded-full transition text-white/70 hover:text-white">
-                        <X size={24} />
+                    <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">{title}</h3>
+                    <button onClick={onClose} className="ml-auto p-2 hover:bg-slate-100 rounded-full transition text-slate-400 hover:text-red-500">
+                        <X size={18} />
                     </button>
                 </div>
-                <div className="p-10">
+                <div className="p-6">
                     {children}
                 </div>
             </div>
@@ -214,7 +239,8 @@ const Modal = ({ isOpen, onClose, title, icon: Icon, colorTheme, children }) => 
 // --- MAIN PAGE ---
 const PortalPage = () => {
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [modals, setModals] = useState({ lms: false, finance: false, records: false, scheduler: false });
+    // Added roadmap state
+    const [modals, setModals] = useState({ lms: false, finance: false, records: false, scheduler: false, roadmap: false });
     const [academicYear, setAcademicYear] = useState('');
 
     useEffect(() => {
@@ -223,131 +249,141 @@ const PortalPage = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // Helper to toggle modals
     const toggleModal = (type, show) => setModals(prev => ({ ...prev, [type]: show }));
 
-    // NEW: Handle Proceed - Opens new tab and closes modal
     const handleProceed = (url, modalType) => {
         window.open(url, '_blank', 'noopener,noreferrer');
-        toggleModal(modalType, false); // Close the modal immediately
+        toggleModal(modalType, false);
     };
 
     const formattedDate = currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' });
     const formattedTime = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     return (
-        <div className="min-h-screen bg-[#020617] relative overflow-x-hidden font-sans text-slate-200 selection:bg-red-500 selection:text-white">
+        <div className="min-h-screen relative overflow-x-hidden font-sans text-slate-600 selection:bg-indigo-100 selection:text-indigo-900 bg-slate-50">
             
-            {/* BACKGROUND */}
+            {/* BACKGROUND LAYER */}
             <div className="fixed inset-0 z-0 pointer-events-none">
-                <div className="absolute inset-0 bg-slate-950" />
-                <img src="/2.png" alt="Portal Background" className="absolute inset-0 w-full h-full object-cover opacity-30 animate-pulse-slow" />
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/70 to-slate-950/90" />
-                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-red-600/20 rounded-full blur-[180px] animate-blob"></div>
-                <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[180px] animate-blob animation-delay-2000"></div>
-                <div className="absolute top-[40%] left-[40%] w-[30%] h-[30%] bg-amber-500/10 rounded-full blur-[150px] animate-blob animation-delay-4000"></div>
+                <img src="/2.png" alt="Portal Background" className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-white/85" /> 
+                <div className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-indigo-400/10 rounded-full blur-[80px] mix-blend-multiply animate-pulse" style={{ animationDuration: '8s' }}/>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-rose-400/10 rounded-full blur-[100px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s', animationDelay: '1s' }}/>
             </div>
 
             {/* --- MODALS --- */}
-            
-            {/* LMS Warning Modal */}
-            <Modal isOpen={modals.lms} onClose={() => toggleModal('lms', false)} title="Beta Environment" icon={AlertTriangle} colorTheme="bg-gradient-to-r from-blue-600 to-indigo-900">
-                <p className="text-slate-400 leading-relaxed mb-8 text-base">
-                    You are entering the LMS <strong>Beta Environment</strong>. Features are currently being tested and you may experience occasional interruptions.
+            <Modal isOpen={modals.lms} onClose={() => toggleModal('lms', false)} title="Beta Environment" icon={AlertTriangle}>
+                <p className="text-slate-500 leading-relaxed mb-6 text-xs md:text-sm">
+                    You are entering the LMS <strong>Beta Environment</strong>. Features are currently being tested.
                 </p>
-                <div className="flex gap-4">
-                    <button onClick={() => toggleModal('lms', false)} className="flex-1 py-4 rounded-2xl font-bold text-slate-400 bg-white/5 hover:bg-white/10 transition border border-white/5">Cancel</button>
-                    {/* Updated to use handleProceed */}
-                    <button onClick={() => handleProceed(URLS.lms, 'lms')} className="flex-1 py-4 rounded-2xl font-bold bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition">Proceed to LMS</button>
+                <div className="flex gap-3">
+                    <button onClick={() => toggleModal('lms', false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition text-xs">Cancel</button>
+                    <button onClick={() => handleProceed(URLS.lms, 'lms')} className="flex-1 py-3 rounded-xl font-bold bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-500 transition text-xs">Proceed</button>
                 </div>
             </Modal>
 
-            {/* Finance Restricted Access Modal */}
-            <Modal isOpen={modals.finance} onClose={() => toggleModal('finance', false)} title="Restricted Access" icon={Lock} colorTheme="bg-gradient-to-r from-red-600 to-rose-900">
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-24 h-24 bg-rose-500/10 rounded-full text-rose-500 mb-4 border border-rose-500/20 animate-pulse">
-                        <ShieldCheck size={48} />
+            <Modal isOpen={modals.finance} onClose={() => toggleModal('finance', false)} title="Restricted Access" icon={Lock}>
+                <div className="text-center mb-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-50 rounded-full text-emerald-500 mb-3 border border-emerald-100">
+                        <ShieldCheck size={32} />
                     </div>
-                    <h4 className="font-bold text-white text-lg uppercase tracking-wider">Authorized Personnel Only</h4>
+                    <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Authorized Only</h4>
                 </div>
-                <p className="text-slate-400 text-sm leading-relaxed mb-8 text-center">
-                    You are about to be redirected to the <strong>Bookkeeping System</strong>.<br/>Please proceed <strong>only</strong> if you are the school's official bookkeeper.
+                <p className="text-slate-500 text-xs md:text-sm leading-relaxed mb-6 text-center">
+                    Redirecting to <strong>Bookkeeping System</strong>. Proceed only if authorized.
                 </p>
-                <div className="flex gap-4">
-                    <button onClick={() => toggleModal('finance', false)} className="flex-1 py-4 rounded-2xl font-bold text-slate-400 bg-white/5 hover:bg-white/10 transition border border-white/5">Cancel</button>
-                    {/* Updated to use handleProceed */}
-                    <button onClick={() => handleProceed(URLS.finance, 'finance')} className="flex-1 py-4 rounded-2xl font-bold bg-rose-600 text-white shadow-lg shadow-rose-500/20 hover:bg-rose-500 transition">Access Ledger</button>
+                <div className="flex gap-3">
+                    <button onClick={() => toggleModal('finance', false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition text-xs">Cancel</button>
+                    <button onClick={() => handleProceed(URLS.finance, 'finance')} className="flex-1 py-3 rounded-xl font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-500 transition text-xs">Access Ledger</button>
                 </div>
             </Modal>
 
-            {/* SCHEDULER: Beta & Admin Restricted Modal */}
-            <Modal isOpen={modals.scheduler} onClose={() => toggleModal('scheduler', false)} title="Restricted Beta Access" icon={Lock} colorTheme="bg-gradient-to-r from-orange-600 to-amber-700">
-                <div className="flex flex-col items-center mb-6">
-                    <div className="bg-orange-500/10 p-4 rounded-full mb-4 border border-orange-500/20">
-                        <AlertTriangle className="w-8 h-8 text-orange-400" />
-                    </div>
-                    <h4 className="font-bold text-white text-lg uppercase tracking-wider text-center">Admin Access Only</h4>
-                </div>
-                <p className="text-slate-400 text-sm leading-relaxed mb-8 text-center">
-                    You are accessing the <strong>Smart Scheduler (Beta)</strong>. This tool is currently in testing and is strictly for use by <strong>Administrators</strong> to create class schedules and teacher loads.
+            <Modal isOpen={modals.scheduler} onClose={() => toggleModal('scheduler', false)} title="Restricted Beta" icon={Lock}>
+                 <p className="text-slate-500 leading-relaxed mb-6 text-xs md:text-sm text-center">
+                    <strong>Smart Scheduler (Beta)</strong> is strictly for Administrators.
                 </p>
-                <div className="flex gap-4">
-                    <button onClick={() => toggleModal('scheduler', false)} className="flex-1 py-4 rounded-2xl font-bold text-slate-400 bg-white/5 hover:bg-white/10 transition border border-white/5">Cancel</button>
-                    {/* Updated to use handleProceed */}
-                    <button onClick={() => handleProceed(URLS.scheduler, 'scheduler')} className="flex-1 py-4 rounded-2xl font-bold bg-orange-600 text-white shadow-lg shadow-orange-500/20 hover:bg-orange-500 transition">Proceed</button>
+                <div className="flex gap-3">
+                    <button onClick={() => toggleModal('scheduler', false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition text-xs">Cancel</button>
+                    <button onClick={() => handleProceed(URLS.scheduler, 'scheduler')} className="flex-1 py-3 rounded-xl font-bold bg-orange-600 text-white shadow-lg shadow-orange-200 hover:bg-orange-500 transition text-xs">Proceed</button>
                 </div>
             </Modal>
 
-            {/* Records Coming Soon Modal */}
-            <Modal isOpen={modals.records} onClose={() => toggleModal('records', false)} title="Under Maintenance" icon={Clock} colorTheme="bg-gradient-to-r from-slate-700 to-slate-800">
-                <p className="text-slate-400 leading-relaxed mb-8 text-base">
-                    The <strong>Academic Records System</strong> is currently being built to serve you better. Please check back later.
+            <Modal isOpen={modals.records} onClose={() => toggleModal('records', false)} title="Under Maintenance" icon={Clock}>
+                <p className="text-slate-500 leading-relaxed mb-6 text-xs md:text-sm">
+                    The <strong>Academic Records System</strong> is currently being built. Please check back later.
                 </p>
-                <button onClick={() => toggleModal('records', false)} className="w-full py-4 rounded-2xl font-bold bg-white text-slate-900 shadow-lg hover:bg-slate-200 transition">Return to Portal</button>
+                <button onClick={() => toggleModal('records', false)} className="w-full py-3 rounded-xl font-bold bg-slate-800 text-white shadow-lg hover:bg-slate-700 transition text-xs">Return</button>
             </Modal>
+
+            {/* --- ROADMAP MODAL --- */}
+            <Roadmap 
+                isOpen={modals.roadmap} 
+                onClose={() => toggleModal('roadmap', false)} 
+                systemCards={SYSTEM_CARDS} 
+            />
 
             {/* --- HERO CONTENT --- */}
-            <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 md:py-20 flex flex-col justify-center min-h-[90vh]">
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-6 flex flex-col justify-center min-h-[90vh]">
                 
-                {/* HEADER */}
-                <header className="flex flex-col md:flex-row items-center md:items-end justify-between gap-10 mb-24 animate-fade-in-down">
-                    <div className="flex items-center gap-8">
-                        <div className="relative group cursor-default">
-                            <div className="absolute inset-0 bg-red-600 blur-3xl opacity-20 group-hover:opacity-40 transition-opacity rounded-full"></div>
-                            <div className="w-24 h-24 md:w-28 md:h-28 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl rounded-[2rem] shadow-2xl flex items-center justify-center p-5 border border-white/10 relative z-10 hover:bg-white/10 transition-all hover:scale-105 duration-500">
-                                <img src="/1.png" alt="SRCS Logo" className="w-full h-full object-contain drop-shadow-lg" />
+                {/* HEADER ROW */}
+                <header className="flex flex-col xl:flex-row items-center justify-between gap-6 mb-6 md:mb-8 w-full">
+                    
+                    {/* LEFT: Branding */}
+                    <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
+                        <div className="relative group cursor-default shrink-0">
+                            <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-20 group-hover:opacity-40 transition-opacity rounded-full"></div>
+                            <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-md flex items-center justify-center p-3 border border-slate-100 relative z-10 hover:scale-105 transition-transform duration-300">
+                                <img src="/1.png" alt="SRCS Logo" className="w-full h-full object-contain" />
                             </div>
                         </div>
-                        <div>
-                            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-none uppercase drop-shadow-2xl">
-                                San Ramon <br/>
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400">Catholic School</span>
+                        <div className="flex flex-col leading-none space-y-0.5 md:space-y-1">
+                            <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight uppercase drop-shadow-sm">
+                                San Ramon 
                             </h1>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.35em] mt-3 border-l-4 border-red-500 pl-4 py-1">Official Digital Portal</p>
+                            <h1 className="text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-orange-500 tracking-tight uppercase drop-shadow-sm">
+                                Catholic School
+                            </h1>
+                            <p className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-[0.2em] md:tracking-[0.3em] pt-1">
+                                Official Digital Portal
+                            </p>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap justify-center gap-4">
-                        <HeaderWidget icon={<Calendar className="w-5 h-5" />} label="Today" value={formattedDate} />
-                        <HeaderWidget icon={<Clock className="w-5 h-5" />} label="Time" value={formattedTime} />
-                        <div className="hidden lg:block">
-                            <HeaderWidget icon={<GraduationCap className="w-5 h-5" />} label="School Year" value={academicYear} />
+                    {/* RIGHT: Widgets */}
+                    <div className="flex flex-wrap md:flex-nowrap justify-center items-stretch gap-2 md:gap-3 w-full md:w-auto">
+                        <HeaderWidget 
+                            icon={<Clock className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" />} 
+                            label="Today" 
+                            value={formattedDate} 
+                            subValue={formattedTime}
+                            className="flex-1 md:flex-none"
+                        />
+                        <div className="hidden lg:block flex-1 md:flex-none">
+                            <HeaderWidget 
+                                icon={<GraduationCap className="w-4 h-4 md:w-5 md:h-5 text-emerald-500" />} 
+                                label="School Year" 
+                                value={academicYear} 
+                                className="h-full"
+                            />
+                        </div>
+                        {/* Roadmap Widget Button */}
+                        <div className="flex-1 md:flex-none w-full md:w-auto">
+                            <RoadmapWidget onClick={() => toggleModal('roadmap', true)} />
                         </div>
                     </div>
                 </header>
 
                 {/* HERO TEXT */}
-                <div className="text-center mb-20 animate-fade-in-up">
-                    <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-8 drop-shadow-2xl">
-                        Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-orange-500 to-amber-500">Destination</span>
+                <div className="text-center mb-6 md:mb-8 animate-fade-in-up">
+                    <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter mb-2 md:mb-3">
+                        Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-fuchsia-600">Destination</span>
                     </h2>
-                    <p className="text-slate-400 font-medium text-base md:text-xl max-w-3xl mx-auto leading-relaxed">
+                    <p className="text-slate-600 font-medium text-xs md:text-base max-w-xl mx-auto leading-relaxed px-4">
                         Welcome to the SRCS Digital Ecosystem. Please select your designated portal below to proceed securely.
                     </p>
                 </div>
 
                 {/* CARDS GRID */}
-                <main className="flex flex-wrap justify-center gap-6 mb-auto animate-fade-in-up pb-12" style={{ animationDelay: '0.1s' }}>
+                <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-auto animate-fade-in-up pb-8 w-full">
                     {SYSTEM_CARDS.map((card) => (
                         <SystemCard 
                             key={card.id} 
@@ -357,13 +393,14 @@ const PortalPage = () => {
                     ))}
                 </main>
 
-                <footer className="mt-12 border-t border-white/5 pt-10 pb-6">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left opacity-60 hover:opacity-100 transition-opacity">
-                        <div className="flex items-center justify-center gap-3 text-slate-500">
-                            <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                            <span className="text-[11px] font-bold uppercase tracking-widest">Secure SSL Connection • 256-bit Encryption</span>
-                        </div>
-                        <p className="text-slate-600 text-[11px] font-bold uppercase tracking-widest">
+                {/* FOOTER */}
+                <footer className="mt-4 md:mt-6 pt-6 pb-6 flex flex-col md:flex-row items-center justify-center gap-3 opacity-80">
+                    <div className="flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-white/40 border border-white/50 shadow-sm backdrop-blur-[2px]">
+                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                        <span className="text-[9px] md:text-[10px] font-bold text-slate-600 uppercase tracking-widest">Secure SSL • 256-bit Encryption</span>
+                    </div>
+                    <div className="px-4 py-1.5 rounded-full bg-white/40 border border-white/50 shadow-sm backdrop-blur-[2px]">
+                        <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                             © {new Date().getFullYear()} SRCS System. All Rights Reserved.
                         </p>
                     </div>

@@ -14,87 +14,87 @@ const Icons = {
     school: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
 };
 
-// --- STAT CARD COMPONENT ---
+// --- STAT CARD COMPONENT (Light Theme) ---
 const StatCard = ({ label, value, subtext, color = "bg-blue-500", glowColor = "bg-blue-500" }) => (
-    <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-white/5 shadow-xl relative overflow-hidden group hover:border-white/10 transition-all">
-        {/* Glow Effect */}
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        {/* Glow Effect - Subtle on light mode */}
         <div className={`absolute top-0 right-0 w-24 h-24 ${glowColor} blur-[60px] opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none group-hover:opacity-20 transition-opacity`}></div>
         
         <div className="flex flex-row md:flex-col justify-between items-center md:items-start relative z-10">
             <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
-                <h3 className="text-2xl md:text-3xl font-black text-white">{value}</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                <h3 className="text-2xl md:text-3xl font-black text-slate-800">{value}</h3>
             </div>
             {/* Visual Indicator for Mobile */}
-            <div className={`md:hidden w-2 h-2 rounded-full ${color} shadow-[0_0_10px_currentColor]`}></div>
+            <div className={`md:hidden w-2 h-2 rounded-full ${color}`}></div>
         </div>
         
         {subtext && (
-            <div className="mt-4 h-1.5 w-full rounded-full bg-white/5 overflow-hidden hidden md:block">
-                <div className={`h-full ${color} shadow-[0_0_8px_currentColor]`} style={{ width: subtext }}></div>
+            <div className="mt-4 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden hidden md:block">
+                <div className={`h-full ${color}`} style={{ width: subtext }}></div>
             </div>
         )}
     </div>
 );
 
-// --- GENDER BAR COMPONENT ---
+// --- GENDER BAR COMPONENT (Light Theme) ---
 const GenderBar = ({ male, female }) => {
     const total = male + female;
     const malePerc = total ? Math.round((male / total) * 100) : 0;
     const femalePerc = total ? Math.round((female / total) * 100) : 0;
 
     return (
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/5 shadow-sm">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Gender Distribution</h4>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Gender Distribution</h4>
             
             {/* The Bar */}
-            <div className="flex h-8 w-full rounded-xl overflow-hidden mb-5 bg-black/20 border border-white/5">
-                <div className="bg-blue-600 h-full flex items-center justify-center transition-all duration-500 relative group shadow-[0_0_20px_rgba(37,99,235,0.3)]" style={{ width: `${malePerc}%` }}>
+            <div className="flex h-8 w-full rounded-xl overflow-hidden mb-5 bg-slate-100 border border-slate-200">
+                <div className="bg-blue-500 h-full flex items-center justify-center transition-all duration-500 relative group" style={{ width: `${malePerc}%` }}>
                     {malePerc > 10 && <span className="text-[9px] font-black text-white absolute uppercase tracking-wider">M: {malePerc}%</span>}
                 </div>
-                <div className="bg-pink-600 h-full flex items-center justify-center transition-all duration-500 relative group shadow-[0_0_20px_rgba(219,39,119,0.3)]" style={{ width: `${femalePerc}%` }}>
+                <div className="bg-pink-500 h-full flex items-center justify-center transition-all duration-500 relative group" style={{ width: `${femalePerc}%` }}>
                     {femalePerc > 10 && <span className="text-[9px] font-black text-white absolute uppercase tracking-wider">F: {femalePerc}%</span>}
                 </div>
             </div>
 
             {/* Legend / Counters */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div className="flex items-center gap-3 bg-blue-500/10 px-4 py-2 rounded-xl border border-blue-500/20 w-full sm:w-auto">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
-                    <span className="font-bold text-blue-400 text-xs uppercase tracking-wide">Male: {male}</span>
+                <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 w-full sm:w-auto">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span className="font-bold text-blue-600 text-xs uppercase tracking-wide">Male: {male}</span>
                 </div>
-                <div className="flex items-center gap-3 bg-pink-500/10 px-4 py-2 rounded-xl border border-pink-500/20 w-full sm:w-auto">
-                    <span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_8px_#ec4899]"></span>
-                    <span className="font-bold text-pink-400 text-xs uppercase tracking-wide">Female: {female}</span>
+                <div className="flex items-center gap-3 bg-pink-50 px-4 py-2 rounded-xl border border-pink-100 w-full sm:w-auto">
+                    <span className="w-2 h-2 rounded-full bg-pink-500"></span>
+                    <span className="font-bold text-pink-600 text-xs uppercase tracking-wide">Female: {female}</span>
                 </div>
             </div>
         </div>
     );
 };
 
-// --- TABLE COMPONENTS ---
+// --- TABLE COMPONENTS (Light Theme) ---
 
 const LastSchoolCard = ({ school, isAllGradesView }) => {
     return (
-        <div className="bg-slate-800/40 p-5 rounded-2xl border border-white/5 shadow-lg mb-3">
+        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm mb-3">
             <div className="flex justify-between items-start mb-4">
-                <h5 className="text-xs font-black text-white leading-snug uppercase tracking-wide pr-4">{school.name}</h5>
-                <div className="bg-white/5 px-3 py-1 rounded-lg border border-white/5">
+                <h5 className="text-xs font-black text-slate-700 leading-snug uppercase tracking-wide pr-4">{school.name}</h5>
+                <div className="bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block text-right mb-0.5">Total</span>
-                    <span className="text-lg font-black text-white block text-right leading-none">{school.total}</span>
+                    <span className="text-lg font-black text-slate-800 block text-right leading-none">{school.total}</span>
                 </div>
             </div>
             
             <div className="grid grid-cols-2 gap-2">
-                <div className="bg-blue-500/5 rounded-xl p-2 border border-blue-500/10 flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-1">Male</span>
-                    <span className="text-sm font-black text-white">
+                <div className="bg-blue-50 rounded-xl p-2 border border-blue-100 flex flex-col items-center">
+                    <span className="text-[9px] font-bold text-blue-500 uppercase tracking-wider mb-1">Male</span>
+                    <span className="text-sm font-black text-slate-700">
                         {isAllGradesView ? school.overallMale : school.male || 0}
                     </span>
                 </div>
-                <div className="bg-pink-500/5 rounded-xl p-2 border border-pink-500/10 flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-pink-400 uppercase tracking-wider mb-1">Female</span>
-                    <span className="text-sm font-black text-white">
+                <div className="bg-pink-50 rounded-xl p-2 border border-pink-100 flex flex-col items-center">
+                    <span className="text-[9px] font-bold text-pink-500 uppercase tracking-wider mb-1">Female</span>
+                    <span className="text-sm font-black text-slate-700">
                         {isAllGradesView ? school.overallFemale : school.female || 0}
                     </span>
                 </div>
@@ -111,48 +111,48 @@ const LastSchoolTable = ({ data, selectedGrade }) => {
     const isAllGradesView = selectedGrade === 'All';
 
     return (
-        <div className="w-full overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 shadow-inner">
+        <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full border-collapse">
                     <thead>
                         <tr>
-                            <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] sticky left-0 z-20 w-1/3 min-w-[200px] bg-slate-950/90 backdrop-blur-md border-b border-white/10 shadow-[5px_0_15px_rgba(0,0,0,0.3)]">
+                            <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] sticky left-0 z-20 w-1/3 min-w-[200px] bg-slate-50 border-b border-slate-200 shadow-[5px_0_15px_rgba(0,0,0,0.02)]">
                                 School Name
                             </th>
                             
                             {isAllGradesView ? (
                                 <>
-                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-blue-400/70 uppercase tracking-widest w-[100px] bg-slate-900/80 border-b border-white/5">Male</th>
-                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-pink-400/70 uppercase tracking-widest w-[100px] bg-slate-900/80 border-b border-white/5">Female</th>
+                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-blue-500/70 uppercase tracking-widest w-[100px] bg-slate-50/50 border-b border-slate-200">Male</th>
+                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-pink-500/70 uppercase tracking-widest w-[100px] bg-slate-50/50 border-b border-slate-200">Female</th>
                                 </>
                             ) : (
                                 <>
-                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-blue-400/70 uppercase tracking-widest w-[100px] bg-slate-900/80 border-b border-white/5">Male</th>
-                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-pink-400/70 uppercase tracking-widest w-[100px] bg-slate-900/80 border-b border-white/5">Female</th>
+                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-blue-500/70 uppercase tracking-widest w-[100px] bg-slate-50/50 border-b border-slate-200">Male</th>
+                                    <th className="px-4 py-5 text-center text-[9px] font-bold text-pink-500/70 uppercase tracking-widest w-[100px] bg-slate-50/50 border-b border-slate-200">Female</th>
                                 </>
                             )}
                             
-                            <th className="px-6 py-5 text-center text-[10px] font-black text-red-500 uppercase tracking-widest sticky right-0 z-20 w-[100px] bg-slate-950/90 backdrop-blur-md border-b border-white/10 shadow-[-5px_0_15px_rgba(0,0,0,0.3)]">
+                            <th className="px-6 py-5 text-center text-[10px] font-black text-red-500 uppercase tracking-widest sticky right-0 z-20 w-[100px] bg-slate-50 border-b border-slate-200 shadow-[-5px_0_15px_rgba(0,0,0,0.02)]">
                                 Total
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-slate-100">
                         {sortedSchools.map((school, index) => (
-                            <tr key={index} className="hover:bg-white/[0.02] transition-colors group">
-                                <td className="px-6 py-4 text-xs font-bold text-slate-300 uppercase tracking-wide sticky left-0 z-10 bg-[#0f172a] group-hover:bg-[#151f36] transition-colors border-r border-white/5 shadow-[5px_0_15px_rgba(0,0,0,0.2)] truncate max-w-[250px]">
+                            <tr key={index} className="hover:bg-slate-50 transition-colors group">
+                                <td className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wide sticky left-0 z-10 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-100 shadow-[5px_0_15px_rgba(0,0,0,0.02)] truncate max-w-[250px]">
                                     {school.name}
                                 </td>
                                 
                                 {isAllGradesView ? (
                                     <>
                                         <td className="px-4 py-4 text-center">
-                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.overallMale > 0 ? 'bg-blue-500/10 text-blue-400' : 'text-slate-700 opacity-30'}`}>
+                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.overallMale > 0 ? 'bg-blue-50 text-blue-600' : 'text-slate-300'}`}>
                                                 {school.overallMale > 0 ? school.overallMale : '-'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
-                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.overallFemale > 0 ? 'bg-pink-500/10 text-pink-400' : 'text-slate-700 opacity-30'}`}>
+                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.overallFemale > 0 ? 'bg-pink-50 text-pink-600' : 'text-slate-300'}`}>
                                                 {school.overallFemale > 0 ? school.overallFemale : '-'}
                                             </span>
                                         </td>
@@ -160,20 +160,20 @@ const LastSchoolTable = ({ data, selectedGrade }) => {
                                 ) : (
                                     <>
                                         <td className="px-4 py-4 text-center">
-                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.male > 0 ? 'bg-blue-500/10 text-blue-400' : 'text-slate-700 opacity-30'}`}>
+                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.male > 0 ? 'bg-blue-50 text-blue-600' : 'text-slate-300'}`}>
                                                 {school.male > 0 ? school.male : '-'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
-                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.female > 0 ? 'bg-pink-500/10 text-pink-400' : 'text-slate-700 opacity-30'}`}>
+                                            <span className={`inline-block w-8 py-1 rounded text-[10px] font-bold ${school.female > 0 ? 'bg-pink-50 text-pink-600' : 'text-slate-300'}`}>
                                                 {school.female > 0 ? school.female : '-'}
                                             </span>
                                         </td>
                                     </>
                                 )}
                                 
-                                <td className="px-6 py-4 text-center sticky right-0 z-10 bg-[#0f172a] group-hover:bg-[#151f36] transition-colors border-l border-white/5 shadow-[-5px_0_15px_rgba(0,0,0,0.2)]">
-                                    <span className="text-sm font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{school.total}</span>
+                                <td className="px-6 py-4 text-center sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition-colors border-l border-slate-100 shadow-[-5px_0_15px_rgba(0,0,0,0.02)]">
+                                    <span className="text-sm font-black text-slate-800">{school.total}</span>
                                 </td>
                             </tr>
                         ))}
@@ -317,29 +317,29 @@ const EnrollmentAnalytics = ({ students }) => {
             {/* HEADER & FILTER */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                 <div>
-                    <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-3 uppercase tracking-tight">
-                        <span className="w-10 h-10 bg-gradient-to-br from-[#800000] to-red-900 rounded-xl flex items-center justify-center shadow-lg shadow-red-900/20 border border-white/10 text-white">
+                    <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-3 uppercase tracking-tight">
+                        <span className="w-10 h-10 bg-gradient-to-br from-[#800000] to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200 border border-white text-white">
                             {Icons.chart}
                         </span> 
                         Enrollment Analytics
                     </h2>
-                    <p className="text-[10px] md:text-xs text-slate-500 font-bold mt-2 uppercase tracking-[0.2em] ml-1">
+                    <p className="text-[10px] md:text-xs text-slate-400 font-bold mt-2 uppercase tracking-[0.2em] ml-1">
                         {selectedGrade === 'All' ? 'School-Wide Overview' : `${selectedGrade} Report`}
                     </p>
                 </div>
                 
                 <div className="relative w-full md:w-auto group">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-white transition-colors">{Icons.filter}</div>
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors">{Icons.filter}</div>
                     <select 
                         value={selectedGrade} 
                         onChange={(e) => setSelectedGrade(e.target.value)} 
-                        className="w-full md:w-auto bg-black/30 border border-white/10 text-white text-sm font-bold rounded-xl pl-12 pr-10 py-3.5 outline-none focus:ring-2 focus:ring-[#800000]/50 focus:border-[#800000] shadow-xl cursor-pointer appearance-none hover:bg-white/5 transition-all uppercase tracking-wide"
+                        className="w-full md:w-auto bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl pl-12 pr-10 py-3.5 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 shadow-sm cursor-pointer appearance-none hover:bg-slate-50 transition-all uppercase tracking-wide"
                     >
-                        <option value="All" className="bg-slate-900 text-white">All Grade Levels</option>
-                        <option disabled className="bg-slate-900 text-slate-600">──────────</option>
-                        {GRADE_LEVELS.map(g => <option key={g} value={g} className="bg-slate-900 text-white">{g}</option>)}
+                        <option value="All" className="text-slate-700">All Grade Levels</option>
+                        <option disabled className="text-slate-300">──────────</option>
+                        {GRADE_LEVELS.map(g => <option key={g} value={g} className="text-slate-700">{g}</option>)}
                     </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-xs">▼</div>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</div>
                 </div>
             </div>
 
@@ -348,29 +348,29 @@ const EnrollmentAnalytics = ({ students }) => {
                 <StatCard 
                     label="Total Active" 
                     value={stats.total} 
-                    color="bg-slate-500" 
-                    glowColor="bg-white"
+                    color="bg-slate-400" 
+                    glowColor="bg-slate-400"
                     subtext="100%" 
                 />
                 <StatCard 
                     label="Enrolled" 
                     value={stats.enrolled} 
                     color="bg-emerald-500" 
-                    glowColor="bg-emerald-500"
+                    glowColor="bg-emerald-200"
                     subtext={`${stats.total ? Math.round((stats.enrolled / stats.total) * 100) : 0}%`} 
                 />
                 <StatCard 
                     label="Pending" 
                     value={stats.pending} 
                     color="bg-amber-500" 
-                    glowColor="bg-amber-500"
+                    glowColor="bg-amber-200"
                     subtext={`${stats.total ? Math.round((stats.pending / stats.total) * 100) : 0}%`} 
                 />
                 <StatCard 
                     label="Rejected" 
                     value={stats.rejected} 
                     color="bg-red-500" 
-                    glowColor="bg-red-500"
+                    glowColor="bg-red-200"
                     subtext={`${stats.total ? Math.round((stats.rejected / stats.total) * 100) : 0}%`} 
                 />
             </div>
@@ -381,8 +381,8 @@ const EnrollmentAnalytics = ({ students }) => {
                      <StatCard 
                         label="Cancelled" 
                         value={stats.cancelled} 
-                        color="bg-slate-600" 
-                        glowColor="bg-slate-500"
+                        color="bg-slate-400" 
+                        glowColor="bg-slate-200"
                         subtext=""
                     />
                 </div>
@@ -395,12 +395,12 @@ const EnrollmentAnalytics = ({ students }) => {
 
             {/* LAST SCHOOL ATTENDED ANALYTICS (MOVED UP) */}
             {Object.keys(stats.byLastSchool).length > 0 && (
-                <div className="bg-slate-900/60 backdrop-blur-md p-2 md:p-6 rounded-2xl border border-white/5 shadow-xl overflow-hidden mb-10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                    <div className="px-4 md:px-2 pt-4 pb-6 flex items-center justify-between border-b border-white/5 mb-6">
+                <div className="bg-white p-2 md:p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                    <div className="px-4 md:px-2 pt-4 pb-6 flex items-center justify-between border-b border-slate-100 mb-6">
                         <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             {Icons.school} Last School Attended
                         </h4>
-                        <span className="bg-white/5 border border-white/5 text-[9px] font-bold text-slate-400 px-3 py-1 rounded-full uppercase tracking-wider">
+                        <span className="bg-slate-50 border border-slate-100 text-[9px] font-bold text-slate-400 px-3 py-1 rounded-full uppercase tracking-wider">
                             {selectedGrade === 'All' ? 'All Levels' : selectedGrade}
                         </span>
                     </div>
@@ -427,8 +427,8 @@ const EnrollmentAnalytics = ({ students }) => {
 
             {/* GRADE DISTRIBUTION CHART (MOVED DOWN) */}
             {selectedGrade === 'All' && (
-                <div className="bg-slate-900/60 backdrop-blur-md p-6 md:p-8 rounded-2xl border border-white/5 shadow-xl overflow-hidden mb-10 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 border-b border-white/5 pb-4 flex items-center gap-2">
+                <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-10 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8 border-b border-slate-100 pb-4 flex items-center gap-2">
                         {Icons.chart} Enrollment by Grade Level (Active)
                     </h4>
                     
@@ -443,13 +443,13 @@ const EnrollmentAnalytics = ({ students }) => {
                                     <div key={grade} className="flex-1 min-w-[30px] flex flex-col justify-end items-center group relative">
                                         
                                         {/* Tooltip */}
-                                        <div className="mb-3 text-[10px] font-bold text-white bg-slate-800 px-3 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all absolute -top-10 z-10 whitespace-nowrap border border-white/10">
+                                        <div className="mb-3 text-[10px] font-bold text-white bg-slate-800 px-3 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all absolute -top-10 z-10 whitespace-nowrap">
                                             {count} Students
                                         </div>
 
-                                        {/* The Bar */}
+                                        {/* The Bar - Light Theme Gradient */}
                                         <div 
-                                            className="w-full bg-gradient-to-t from-red-900/20 to-red-600/40 rounded-t-lg relative group-hover:to-red-500/60 transition-all duration-500 border-t border-x border-white/5 shadow-[0_0_15px_rgba(220,38,38,0.1)]"
+                                            className="w-full bg-gradient-to-t from-red-100 to-red-300 rounded-t-lg relative group-hover:to-red-400 transition-all duration-500 border-t border-x border-red-200"
                                             style={{ height: `${heightPerc}%`, minHeight: count > 0 ? '6px' : '4px' }}
                                         >
                                             {count > 0 && (
@@ -458,7 +458,7 @@ const EnrollmentAnalytics = ({ students }) => {
                                         </div>
                                         
                                         {/* Grade Label */}
-                                        <div className="mt-4 text-[9px] font-bold text-slate-500 uppercase text-center truncate w-full group-hover:text-white transition-colors">
+                                        <div className="mt-4 text-[9px] font-bold text-slate-400 uppercase text-center truncate w-full group-hover:text-red-600 transition-colors">
                                             {shortName}
                                         </div>
                                     </div>
@@ -471,8 +471,8 @@ const EnrollmentAnalytics = ({ students }) => {
 
             {/* EMPTY STATE */}
             {stats.total === 0 && (
-                <div className="text-center py-20 bg-slate-900/40 rounded-[2rem] border border-dashed border-white/5">
-                    <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">No data available for this selection.</p>
+                <div className="text-center py-20 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">No data available for this selection.</p>
                 </div>
             )}
         </div>

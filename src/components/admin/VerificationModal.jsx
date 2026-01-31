@@ -18,8 +18,8 @@ const Toast = ({ message }) => {
     if (!message) return null;
     return (
         <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-[100] animate-fade-in-down">
-            <div className="bg-emerald-500/10 backdrop-blur-md border border-emerald-500/20 text-emerald-400 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
-                <div className="bg-emerald-500 rounded-full p-1 text-black">
+            <div className="bg-emerald-50 backdrop-blur-md border border-emerald-200 text-emerald-700 px-6 py-3 rounded-full shadow-xl flex items-center gap-3">
+                <div className="bg-emerald-500 rounded-full p-1 text-white">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><path d="M5 13l4 4L19 7"></path></svg>
                 </div>
                 <span className="text-xs font-bold tracking-wide uppercase">{message}</span>
@@ -28,10 +28,10 @@ const Toast = ({ message }) => {
     );
 };
 
-// --- UI COMPONENTS ---
+// --- UI COMPONENTS (Light Theme) ---
 const InfoCard = ({ title, icon, children, className = "" }) => (
-    <div className={`bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden ${className}`}>
-        <div className="bg-white/[0.02] px-5 py-3 border-b border-white/5 flex items-center gap-3">
+    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>
+        <div className="bg-slate-50/50 px-5 py-3 border-b border-slate-100 flex items-center gap-3">
             <span className="text-slate-400">{icon}</span>
             <h4 className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</h4>
         </div>
@@ -41,33 +41,32 @@ const InfoCard = ({ title, icon, children, className = "" }) => (
 
 const DetailRow = ({ label, value, highlight = false }) => (
     <div className="flex flex-col mb-3 md:mb-4 last:mb-0">
-        <span className="text-[8px] md:text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-0.5 md:mb-1">{label}</span>
-        {/* Changed from truncate to break-words and added leading-tight for better wrapping */}
-        <span className={`text-xs md:text-sm font-bold break-words whitespace-normal leading-tight ${highlight ? 'text-red-400' : 'text-slate-200'}`}>
-            {value || <span className="text-slate-600 italic">N/A</span>}
+        <span className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 md:mb-1">{label}</span>
+        <span className={`text-xs md:text-sm font-bold break-words whitespace-normal leading-tight ${highlight ? 'text-red-600' : 'text-slate-800'}`}>
+            {value || <span className="text-slate-300 italic">N/A</span>}
         </span>
     </div>
 );
 
 const EditInput = ({ label, name, value, onChange, type = "text" }) => (
     <div className="flex flex-col mb-4">
-        <label className="text-[8px] md:text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1.5">{label}</label>
+        <label className="text-[8px] md:text-[9px] font-bold text-blue-600 uppercase tracking-widest mb-1.5">{label}</label>
         <input 
             type={type}
             name={name}
             value={value || ''}
             onChange={onChange}
-            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-xs md:text-sm font-bold text-white outline-none focus:border-blue-500/50 focus:bg-white/5 transition-all"
+            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs md:text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
         />
     </div>
 );
 
 const StatusBadge = ({ status }) => {
     const styles = {
-        'Enrolled': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]',
-        'Pending': 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]',
-        'Rejected': 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]',
-        'Cancelled': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+        'Enrolled': 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-100',
+        'Pending': 'bg-amber-50 text-amber-700 border-amber-200 ring-1 ring-amber-100',
+        'Rejected': 'bg-red-50 text-red-700 border-red-200 ring-1 ring-red-100',
+        'Cancelled': 'bg-slate-100 text-slate-500 border-slate-200'
     };
     return (
         <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border ${styles[status] || styles['Pending']}`}>
@@ -89,40 +88,39 @@ const EnrollmentDataSummary = ({
         <div className="h-full overflow-y-auto custom-scrollbar p-1 pb-32">
             
             {/* HEADER PROFILE */}
-            <div className="relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-white/5 rounded-[1.5rem] p-4 md:p-5 mb-5 shadow-xl overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+            <div className="relative bg-white border border-slate-200 rounded-[1.5rem] p-4 md:p-5 mb-5 shadow-lg shadow-slate-200/50 overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                 
                 <div className="flex items-start md:items-center gap-4 relative z-10">
-                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-[#800000] to-red-900 text-white flex items-center justify-center text-xl md:text-2xl font-black shadow-lg shadow-red-900/30 border border-white/10 shrink-0">
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-[#800000] to-red-600 text-white flex items-center justify-center text-xl md:text-2xl font-black shadow-lg shadow-red-100 border border-white shrink-0">
                         {s.lastName.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4 mb-2">
-                            <h3 className="text-lg md:text-2xl font-black text-white leading-none truncate">{s.lastName}, {s.firstName}</h3>
+                            <h3 className="text-lg md:text-2xl font-black text-slate-800 leading-none truncate">{s.lastName}, {s.firstName}</h3>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             <StatusBadge status={s.status} />
-                            <span className="text-slate-600">•</span>
-                            <span className="bg-white/5 px-2 py-0.5 rounded border border-white/5">{s.studentType}</span>
-                            <span className="text-slate-600">•</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="bg-slate-50 text-slate-600 px-2 py-0.5 rounded border border-slate-200">{s.studentType}</span>
+                            <span className="text-slate-300">•</span>
                             <span>{s.gradeLevel}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* DESKTOP ACTIONS */}
                 {!isEditing && (
                     <div className="hidden md:flex absolute top-5 right-5 gap-2 z-20">
                         <button 
                             onClick={onGeneratePdf}
                             disabled={isPdfGenerating}
-                            className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 flex items-center gap-2 disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 hover:border-indigo-200 hover:text-indigo-600 flex items-center gap-2 disabled:opacity-50 shadow-sm"
                         >
                             {isPdfGenerating ? <span className="animate-spin">C</span> : Icons.download} PDF
                         </button>
                         <button 
                             onClick={onToggleEdit} 
-                            className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 hover:border-white/20 flex items-center gap-2"
+                            className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 hover:border-slate-300 flex items-center gap-2 shadow-sm"
                         >
                             {ModalIcons.edit} Edit
                         </button>
@@ -145,10 +143,13 @@ const EnrollmentDataSummary = ({
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                                <DetailRow label="Reference Number" value={s.referenceNumber || "N/A"} highlight />
+                            </div>
                             <DetailRow label="LRN" value={s.lrn} />
                             <DetailRow label="Birth Date" value={`${s.dob} (${s.age})`} />
                             <DetailRow label="Sex" value={s.sex} />
-                            <DetailRow label="Assigned Section" value={s.section} highlight />
+                            <DetailRow label="Assigned Section" value={s.section || "Unassigned"} highlight />
                         </div>
                     )}
                 </InfoCard>
@@ -163,7 +164,6 @@ const EnrollmentDataSummary = ({
                         </div>
                     ) : (
                         <div className="space-y-3 md:space-y-4">
-                            {/* Reduced gap-x to give text more space, kept gap-y for separation */}
                             <div className="grid grid-cols-2 gap-x-2 gap-y-3">
                                 <DetailRow label="Father" value={s.fatherName} />
                                 <DetailRow label="Mother" value={s.motherName} />
@@ -203,26 +203,26 @@ const EnrollmentDataSummary = ({
 
             {/* REGISTRAR ACTIONS */}
             {!isEditing && (
-                <div className="mt-5 bg-white/[0.03] rounded-2xl p-5 border border-white/5">
+                <div className="mt-5 bg-slate-50 rounded-2xl p-5 border border-slate-200">
                     <h4 className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                         {Icons.dashboard} Registrar Actions
                     </h4>
                     
                     <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-3 bg-black/20 p-3 rounded-xl border border-white/5">
-                            <div className="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-sm border border-amber-500/20 shrink-0">%</div>
+                        <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm border border-indigo-100 shrink-0">%</div>
                             <div className="flex-1 min-w-0">
-                                <label className="text-[8px] md:text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">General Weighted Avg.</label>
+                                <label className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">General Weighted Avg.</label>
                                 <input 
                                     type="number" step="0.01" placeholder="0.00" value={gwa} 
                                     onChange={(e) => setGwa(e.target.value)}
-                                    className="text-base md:text-lg font-black text-white bg-transparent outline-none w-full placeholder:text-slate-700"
+                                    className="text-base md:text-lg font-black text-slate-800 bg-transparent outline-none w-full placeholder:text-slate-300"
                                 />
                             </div>
                             <button 
                                 onClick={onSaveGwa} 
                                 disabled={isSavingGwa} 
-                                className="text-[9px] md:text-[10px] bg-white text-slate-900 px-4 py-2 rounded-lg font-bold hover:bg-slate-200 disabled:opacity-50 transition-all uppercase whitespace-nowrap"
+                                className="text-[9px] md:text-[10px] bg-slate-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-700 disabled:opacity-50 transition-all uppercase whitespace-nowrap shadow-md"
                             >
                                 {isSavingGwa ? 'Saving...' : 'Save GWA'}
                             </button>
@@ -230,16 +230,16 @@ const EnrollmentDataSummary = ({
 
                         {showActions && (
                             <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => onTransfer(s)} className="py-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 font-bold text-[9px] md:text-[10px] uppercase hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2">
+                                <button onClick={() => onTransfer(s)} className="py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-[9px] md:text-[10px] uppercase hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center gap-2 shadow-sm">
                                     {Icons.transfer} Transfer Section
                                 </button>
-                                <button onClick={() => onPromote(s)} className="py-3 bg-gradient-to-r from-amber-600 to-yellow-600 text-white rounded-xl font-bold text-[9px] md:text-[10px] uppercase hover:to-yellow-500 shadow-lg shadow-amber-900/20 transition-all flex items-center justify-center gap-2 border border-white/10">
+                                <button onClick={() => onPromote(s)} className="py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl font-bold text-[9px] md:text-[10px] uppercase hover:to-amber-500 shadow-lg shadow-amber-100 transition-all flex items-center justify-center gap-2 border border-white/20">
                                     {Icons.promote} Promote Student
                                 </button>
-                                <button onClick={() => onRevert(s.id)} className="col-span-1 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl font-bold text-[9px] md:text-[10px] uppercase hover:bg-red-500/20 transition-all">
+                                <button onClick={() => onRevert(s.id)} className="col-span-1 py-3 bg-red-50 border border-red-100 text-red-600 rounded-xl font-bold text-[9px] md:text-[10px] uppercase hover:bg-red-100 transition-all">
                                     Revert to Pending
                                 </button>
-                                <button onClick={() => onCancelEnrollment(s.id)} className="col-span-1 py-3 bg-slate-800 border border-slate-700 text-slate-400 rounded-xl font-bold text-[9px] md:text-[10px] uppercase hover:bg-slate-700 transition-all">
+                                <button onClick={() => onCancelEnrollment(s.id)} className="col-span-1 py-3 bg-slate-200 border border-slate-300 text-slate-600 rounded-xl font-bold text-[9px] md:text-[10px] uppercase hover:bg-slate-300 transition-all">
                                     Cancel Enrollment
                                 </button>
                             </div>
@@ -274,8 +274,7 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
     useEffect(() => { setLocalStudent(student); setFormData(student); }, [student]);
     useEffect(() => { if (toastMessage) { const timer = setTimeout(() => setToastMessage(null), 3000); return () => clearTimeout(timer); } }, [toastMessage]);
 
-    const NO_SECTION_GRADES = ['Pre-Kindergarten 1', 'Pre-Kindergarten 2', 'Kinder'];
-    const isSectionRequired = !NO_SECTION_GRADES.includes(localStudent.gradeLevel);
+    // UPDATED: No longer strict on sections
     const validSections = sections.filter(sec => sec.gradeLevel === localStudent.gradeLevel);
 
     useEffect(() => {
@@ -336,9 +335,10 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
         setIsSavingGwa(false);
     };
 
+    // UPDATED: Logic to allow approval without section
     const handleApproveClick = () => {
-        if (isSectionRequired && !assignedSection) return;
-        const finalSection = isSectionRequired ? assignedSection : 'Main Class'; 
+        // If no section selected, default to 'Unassigned'
+        const finalSection = assignedSection || 'Unassigned'; 
         onApprove(localStudent.id, studentID, finalSection);
     };
 
@@ -356,30 +356,30 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
     const currentImage = viewMode === 'photo' ? localStudent.studentPhotoUrl : (viewMode === 'psa' ? localStudent.psaScanUrl : localStudent.psaScanUrl2);
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
             <Toast message={toastMessage} />
 
             {/* MODAL CONTAINER */}
-            <div className="bg-slate-900 rounded-[2rem] md:rounded-none w-full md:w-screen h-[90vh] md:h-screen flex flex-col md:flex-row overflow-hidden shadow-2xl border border-white/10 md:border-0 relative">
+            <div className="bg-white rounded-[2rem] md:rounded-3xl w-full md:w-screen h-[90vh] md:h-screen flex flex-col md:flex-row overflow-hidden shadow-2xl border border-white/50 relative">
                 
                 {/* MOBILE ACTIONS */}
                 <div className="absolute top-3 right-3 z-50 flex items-center gap-2 md:hidden">
-                    {!isEditing && <button onClick={handleGeneratePdf} disabled={isPdfGenerating} className="bg-white/10 backdrop-blur text-white p-2 rounded-full border border-white/10">{isPdfGenerating ? '⏳' : Icons.download}</button>}
-                    {!isEditing && <button onClick={() => setIsEditing(true)} className="bg-white/10 backdrop-blur text-white p-2 rounded-full border border-white/10">{ModalIcons.edit}</button>}
-                    <button onClick={onClose} className="bg-white/10 backdrop-blur text-white p-2 rounded-full border border-white/10">{ModalIcons.close}</button>
+                    {!isEditing && <button onClick={handleGeneratePdf} disabled={isPdfGenerating} className="bg-white text-slate-600 p-2 rounded-full border border-slate-200 shadow-sm">{isPdfGenerating ? '⏳' : Icons.download}</button>}
+                    {!isEditing && <button onClick={() => setIsEditing(true)} className="bg-white text-slate-600 p-2 rounded-full border border-slate-200 shadow-sm">{ModalIcons.edit}</button>}
+                    <button onClick={onClose} className="bg-white text-slate-600 p-2 rounded-full border border-slate-200 shadow-sm">{ModalIcons.close}</button>
                 </div>
 
-                {/* LEFT SIDEBAR - WIDTH REDUCED from w-80 to w-64 to maximize right space */}
-                <div className="w-full md:w-64 bg-slate-900/50 border-b md:border-b-0 md:border-r border-white/5 flex flex-col shrink-0 order-2 md:order-1 h-auto md:h-full">
+                {/* LEFT SIDEBAR */}
+                <div className="w-full md:w-64 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 flex flex-col shrink-0 order-2 md:order-1 h-auto md:h-full">
                     
                     {/* TABS */}
-                    <div className="p-3 md:p-4 border-b border-white/5 bg-slate-900">
+                    <div className="p-3 md:p-4 border-b border-slate-200 bg-white">
                         <div className="grid grid-cols-4 md:grid-cols-2 gap-2">
                             {['details', 'photo', 'psa', ...(localStudent.psaScanUrl2 ? ['psa2'] : [])].map(mode => (
                                 <button 
                                     key={mode}
                                     onClick={() => setViewMode(mode)} 
-                                    className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border ${viewMode === mode ? 'bg-white text-slate-900 border-white' : 'bg-transparent border-white/10 text-slate-500 hover:text-white hover:border-white/30'}`}
+                                    className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border ${viewMode === mode ? 'bg-slate-800 text-white border-slate-800 shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
                                 >
                                     {mode === 'psa2' ? 'PSA 2' : mode === 'psa' ? 'PSA' : mode.toUpperCase()}
                                 </button>
@@ -392,44 +392,39 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
                         {isEditing ? (
                             <div className="flex flex-col items-center justify-center h-full text-center p-4 opacity-50">
                                 <span className="text-4xl mb-4 grayscale">✏️</span>
-                                <p className="text-sm font-black text-white uppercase">Editing Mode</p>
+                                <p className="text-sm font-black text-slate-800 uppercase">Editing Mode</p>
                                 <p className="text-[10px] text-slate-400 mt-2">Modify details on the right panel.</p>
                             </div>
                         ) : (
                             <>
                                 {localStudent.status === 'Pending' ? (
                                     <div className="space-y-4">
-                                        <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
-                                            <h4 className="text-[9px] md:text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3">Enrollment Setup</h4>
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                            <h4 className="text-[9px] md:text-[10px] font-black text-blue-600 uppercase tracking-widest mb-3">Enrollment Setup</h4>
                                             <div className="space-y-3">
                                                 <div>
-                                                    <label className="text-[8px] md:text-[9px] font-bold text-slate-500 uppercase mb-1 block">Assigned Student ID</label>
-                                                    <input type="text" value={studentID} onChange={(e) => setStudentID(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs md:text-sm font-bold text-white outline-none focus:border-blue-500/50" />
+                                                    <label className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase mb-1 block">Assigned Student ID</label>
+                                                    <input type="text" value={studentID} onChange={(e) => setStudentID(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs md:text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
                                                 </div>
-                                                {isSectionRequired ? (
-                                                    <div>
-                                                        <label className="text-[8px] md:text-[9px] font-bold text-slate-500 uppercase mb-1 block">Assign Section</label>
-                                                        <div className="relative">
-                                                            <select value={assignedSection} onChange={(e) => setAssignedSection(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs md:text-sm font-bold text-white outline-none focus:border-blue-500/50 appearance-none cursor-pointer">
-                                                                <option value="" className="bg-slate-900 text-slate-500">-- Select Section --</option>
-                                                                {validSections.map(sec => <option key={sec.id} value={sec.name} className="bg-slate-900">{sec.name}</option>)}
-                                                            </select>
-                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-xs">▼</div>
-                                                        </div>
+                                                
+                                                <div>
+                                                    <label className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase mb-1 block">Assign Section</label>
+                                                    <div className="relative">
+                                                        <select value={assignedSection} onChange={(e) => setAssignedSection(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs md:text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none cursor-pointer">
+                                                            <option value="" className="text-slate-400">-- Select Section (Optional) --</option>
+                                                            {validSections.map(sec => <option key={sec.id} value={sec.name} className="text-slate-800">{sec.name}</option>)}
+                                                        </select>
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</div>
                                                     </div>
-                                                ) : (
-                                                    <div className="bg-white/5 p-3 rounded-lg text-[10px] font-bold text-slate-400 text-center border border-white/5">
-                                                        No Section Required
-                                                    </div>
-                                                )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="hidden md:flex h-full flex-col justify-center items-center text-center p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
-                                        <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-2xl mb-3 border border-emerald-500/20">{Icons.check}</div>
-                                        <p className="text-xs font-black text-white uppercase tracking-widest">Student Enrolled</p>
-                                        <p className="text-[10px] text-slate-500 mt-1">This record is active.</p>
+                                    <div className="hidden md:flex h-full flex-col justify-center items-center text-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                                        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-2xl mb-3 border border-emerald-100 text-emerald-500">{Icons.check}</div>
+                                        <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Student Enrolled</p>
+                                        <p className="text-[10px] text-slate-400 mt-1">This record is active.</p>
                                     </div>
                                 )}
                             </>
@@ -437,11 +432,11 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
                     </div>
 
                     {/* ACTION BUTTONS FOOTER */}
-                    <div className="p-3 md:p-5 border-t border-white/5 flex flex-col gap-3 bg-slate-900">
+                    <div className="p-3 md:p-5 border-t border-slate-200 flex flex-col gap-3 bg-white">
                         {isEditing ? (
                             <div className="flex gap-2 w-full">
-                                <button onClick={handleCancelEdit} className="flex-1 py-3.5 rounded-xl font-bold text-slate-400 bg-white/5 hover:bg-white/10 text-[10px] md:text-xs uppercase transition-colors">Cancel</button>
-                                <button onClick={handleSaveDetails} disabled={isSaving} className="flex-[2] py-3.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/30 text-[10px] md:text-xs uppercase transition-colors disabled:opacity-50">
+                                <button onClick={handleCancelEdit} className="flex-1 py-3.5 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 text-[10px] md:text-xs uppercase transition-colors">Cancel</button>
+                                <button onClick={handleSaveDetails} disabled={isSaving} className="flex-[2] py-3.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-200 text-[10px] md:text-xs uppercase transition-colors disabled:opacity-50">
                                     {isSaving ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
@@ -449,22 +444,23 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
                             <>
                                 {localStudent.status === 'Pending' ? (
                                     <div className="flex gap-2">
-                                        <button onClick={() => onReject(localStudent.id)} className="flex-1 py-3.5 rounded-xl font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-[10px] md:text-xs uppercase transition-all">Reject</button>
-                                        <button onClick={handleApproveClick} disabled={isSectionRequired && !assignedSection} className={`flex-[2] py-3.5 rounded-xl font-black text-[10px] md:text-xs uppercase shadow-lg transition-all text-white border border-white/10 ${(isSectionRequired && !assignedSection) ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-[#800000] to-red-700 hover:to-red-600 shadow-red-900/30'}`}>
+                                        <button onClick={() => onReject(localStudent.id)} className="flex-1 py-3.5 rounded-xl font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 text-[10px] md:text-xs uppercase transition-all">Reject</button>
+                                        {/* UPDATED: Button is now enabled even without a section */}
+                                        <button onClick={handleApproveClick} className={`flex-[2] py-3.5 rounded-xl font-black text-[10px] md:text-xs uppercase shadow-lg transition-all text-white bg-gradient-to-r from-[#800000] to-red-600 hover:to-red-500 shadow-red-200 border border-white/20`}>
                                             Approve & Enroll
                                         </button>
                                     </div>
                                 ) : (
-                                    <button onClick={onClose} className="hidden md:block w-full py-3.5 rounded-xl font-bold text-slate-400 bg-white/5 hover:bg-white/10 hover:text-white text-xs uppercase transition-colors">Close Window</button>
+                                    <button onClick={onClose} className="hidden md:block w-full py-3.5 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 hover:text-slate-800 text-xs uppercase transition-colors">Close Window</button>
                                 )}
                             </>
                         )}
                     </div>
                 </div>
 
-                {/* RIGHT PANEL - PADDING REDUCED from p-8 to p-5 to decrease gap */}
-                <div className="flex-1 bg-slate-950 relative overflow-hidden flex flex-col order-1 md:order-2 h-[450px] md:h-full min-h-0">
-                    <button onClick={onClose} className="hidden md:block absolute top-5 right-5 z-20 bg-white/5 p-2 rounded-full shadow-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all">{ModalIcons.close}</button>
+                {/* RIGHT PANEL - Light Theme */}
+                <div className="flex-1 bg-white relative overflow-hidden flex flex-col order-1 md:order-2 h-[450px] md:h-full min-h-0">
+                    <button onClick={onClose} className="hidden md:block absolute top-5 right-5 z-20 bg-white p-2 rounded-full shadow-md border border-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all">{ModalIcons.close}</button>
                     
                     <div className="flex-1 overflow-y-auto p-0 md:p-5 custom-scrollbar">
                         {viewMode === 'details' ? (
@@ -489,18 +485,18 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
                                 />
                             </div>
                         ) : currentImage ? (
-                            <div className="flex flex-col items-center justify-center min-h-full gap-4 p-4 md:p-0">
-                                <div className="relative group rounded-xl overflow-hidden shadow-2xl bg-black border border-white/10 w-full md:w-auto h-full flex items-center justify-center">
+                            <div className="flex flex-col items-center justify-center min-h-full gap-4 p-4 md:p-0 bg-slate-50">
+                                <div className="relative group rounded-xl overflow-hidden shadow-2xl bg-white border border-slate-200 w-full md:w-auto h-full flex items-center justify-center p-2">
                                     <img src={currentImage} className="max-h-full max-w-full object-contain" alt="Document" />
                                 </div>
-                                <button onClick={() => handleDownloadImage(currentImage, `${localStudent.lastName}_${viewMode}.jpg`)} className="absolute bottom-6 right-6 px-5 py-2.5 bg-white text-slate-900 rounded-xl font-bold text-xs shadow-xl flex items-center gap-2 hover:bg-slate-200 transition-all z-10">
+                                <button onClick={() => handleDownloadImage(currentImage, `${localStudent.lastName}_${viewMode}.jpg`)} className="absolute bottom-6 right-6 px-5 py-2.5 bg-slate-800 text-white rounded-xl font-bold text-xs shadow-xl flex items-center gap-2 hover:bg-slate-700 transition-all z-10">
                                     {Icons.download} Download
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2">
-                                <div className="text-5xl opacity-20">{Icons.folder}</div>
-                                <p className="font-bold text-sm uppercase tracking-widest">No Document Available</p>
+                            <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-2">
+                                <div className="text-5xl opacity-50">{Icons.folder}</div>
+                                <p className="font-bold text-sm uppercase tracking-widest text-slate-400">No Document Available</p>
                             </div>
                         )}
                     </div>

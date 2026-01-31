@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import GradebookManager from './pages/GradebookManager';
 import StudentPortal from './pages/StudentPortal';
 import AcademicAccountManager from './pages/AcademicAccountManager';
+import TeacherDashboard from './pages/TeacherDashboard'; // Import the new dashboard
 
 function App() {
   return (
@@ -24,9 +25,12 @@ function App() {
         {/* --- ACADEMIC RECORDS ROUTES --- */}
         {/* Student View (Login with LRN) */}
         <Route path="/student-portal" element={<StudentPortal />} />
-		<Route path="/academic-accounts" element={<AcademicAccountManager />} />
         
-        {/* Teacher View (Standalone Gradebook Manager) */}
+        {/* NEW: Unified Faculty Dashboard (Integrates Accounts & Grades) */}
+        <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
+
+        {/* Standalone Routes (Kept for direct access if needed) */}
+		<Route path="/academic-accounts" element={<AcademicAccountManager />} />
         <Route path="/teacher-grades" element={<GradebookManager />} />
       </Routes>
     </BrowserRouter>

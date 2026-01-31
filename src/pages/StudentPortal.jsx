@@ -2,11 +2,117 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { Icons } from '../utils/Icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Filter, Calendar, BookOpen, GraduationCap, Clock, Pointer, ArrowLeft, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { 
+    ChevronDown, 
+    Filter, 
+    Calendar, 
+    BookOpen, 
+    GraduationCap, 
+    Clock, 
+    Pointer, 
+    ArrowLeft, 
+    FileText, 
+    CheckCircle, 
+    XCircle, 
+    User, 
+    LayoutDashboard, 
+    LogOut,
+    ShieldCheck,
+    LockKeyhole,
+    Sparkles,
+    WifiHigh,
+    Fingerprint
+} from 'lucide-react';
 
-// --- CUSTOM DROPDOWN COMPONENT (Updated for Compact Mobile) ---
+// --- COMPONENT: LIGHTWEIGHT AURORA BACKGROUND ---
+// Optimized for performance using 'transform' and fixed opacity to reduce repaints.
+const OptimizedAurora = () => (
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-slate-50">
+        <div className="absolute inset-0 bg-white/40 backdrop-blur-[100px]" />
+        {/* Blob 1: Violet/Blue */}
+        <div 
+            className="absolute top-[-10%] left-[-10%] w-[70vw] h-[70vw] rounded-full bg-indigo-300/30 blur-[80px] mix-blend-multiply animate-blob-slow"
+            style={{ willChange: 'transform' }}
+        />
+        {/* Blob 2: Fuchsia/Pink */}
+        <div 
+            className="absolute top-[20%] right-[-20%] w-[60vw] h-[60vw] rounded-full bg-fuchsia-300/30 blur-[80px] mix-blend-multiply animate-blob-slower"
+            style={{ willChange: 'transform', animationDelay: '2s' }}
+        />
+        {/* Blob 3: Cyan/Teal */}
+        <div 
+            className="absolute bottom-[-20%] left-[20%] w-[60vw] h-[60vw] rounded-full bg-cyan-200/40 blur-[80px] mix-blend-multiply animate-blob-slow"
+            style={{ willChange: 'transform', animationDelay: '4s' }}
+        />
+        <style>{`
+            @keyframes blob-slow {
+                0% { transform: translate(0px, 0px) scale(1); }
+                33% { transform: translate(30px, -50px) scale(1.1); }
+                66% { transform: translate(-20px, 20px) scale(0.9); }
+                100% { transform: translate(0px, 0px) scale(1); }
+            }
+            .animate-blob-slow { animation: blob-slow 15s infinite ease-in-out; }
+            .animate-blob-slower { animation: blob-slow 20s infinite ease-in-out; }
+        `}</style>
+    </div>
+);
+
+// --- COMPONENT: CINEMATIC SYSTEM CONNECTOR ---
+const SystemConnector = ({ onComplete }) => {
+    const [step, setStep] = useState(0);
+    
+    useEffect(() => {
+        const steps = [
+            setTimeout(() => setStep(1), 600),  // "Handshaking..."
+            setTimeout(() => setStep(2), 1400), // "Verifying Credentials..."
+            setTimeout(() => setStep(3), 2200), // "Access Granted"
+            setTimeout(onComplete, 2800)        // Finish
+        ];
+        return () => steps.forEach(clearTimeout);
+    }, [onComplete]);
+
+    return (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/90 backdrop-blur-xl animate-fade-in">
+            <div className="w-full max-w-sm p-8 text-center">
+                <div className="relative w-20 h-20 mx-auto mb-8">
+                    {/* Ripple Effect */}
+                    <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
+                    <div className="relative z-10 w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl border border-indigo-100">
+                        {step < 3 ? (
+                            <WifiHigh className="w-8 h-8 text-indigo-600 animate-pulse" />
+                        ) : (
+                            <CheckCircle className="w-10 h-10 text-emerald-500 animate-scale-in" />
+                        )}
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                        {step === 0 && "Initiating Secure Handshake..."}
+                        {step === 1 && "Encrypting Session..."}
+                        {step === 2 && "Verifying Student Identity..."}
+                        {step === 3 && "Access Granted"}
+                    </h2>
+                    
+                    {/* Progress Bar */}
+                    <div className="h-1.5 w-64 mx-auto bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-indigo-600 transition-all duration-700 ease-out rounded-full"
+                            style={{ width: step === 0 ? '10%' : step === 1 ? '45%' : step === 2 ? '80%' : '100%' }}
+                        />
+                    </div>
+                    
+                    <p className="text-xs font-mono text-slate-400">
+                        Gateway: 192.168.SECURE • Port: 443
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- CUSTOM DROPDOWN (Unchanged logic, just keeping it here) ---
 const CustomDropdown = ({ label, options, value, onChange, icon: Icon, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -23,31 +129,29 @@ const CustomDropdown = ({ label, options, value, onChange, icon: Icon, placehold
 
     return (
         <div className="relative w-full md:w-auto" ref={dropdownRef}>
-            {/* Label hidden on very small screens to save vertical space, or keep tiny */}
-            <label className="block text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1 truncate">
+            <label className="block text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
                 {label}
             </label>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                // UPDATED: Reduced padding (px-2 py-2) and text size (text-[10px]) for mobile
-                className={`w-full md:min-w-[180px] flex items-center justify-between gap-1 md:gap-3 bg-slate-900/80 border ${isOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-white/10 hover:border-white/20'} rounded-xl px-2 py-2 md:px-4 md:py-3.5 text-[10px] md:text-sm font-bold text-slate-200 transition-all active:scale-[0.98] shadow-sm`}
+                className={`w-full md:min-w-[180px] flex items-center justify-between gap-3 bg-white/80 backdrop-blur-sm border ${isOpen ? 'border-indigo-600 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'} rounded-xl px-3 py-2.5 md:px-4 md:py-3 text-sm font-medium text-slate-700 transition-all shadow-sm`}
             >
-                <div className="flex items-center gap-1.5 truncate">
-                    {Icon && <Icon className={`w-3 h-3 md:w-4 md:h-4 shrink-0 ${value ? 'text-indigo-400' : 'text-slate-500'}`} />}
-                    <span className={`truncate ${!value ? 'text-slate-500 font-medium' : ''}`}>
-                        {value || <span className="md:hidden">Select</span>} {/* Shorten placeholder on mobile */}
+                <div className="flex items-center gap-2 truncate">
+                    {Icon && <Icon className={`w-4 h-4 shrink-0 ${value ? 'text-indigo-600' : 'text-slate-400'}`} />}
+                    <span className={`truncate ${!value ? 'text-slate-400' : 'text-slate-900 font-semibold'}`}>
+                        {value || <span className="md:hidden">Select</span>}
                         <span className="hidden md:inline">{!value && placeholder}</span>
                     </span>
                 </div>
-                <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[150%] md:w-full bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in-up">
-                    <div className="max-h-[250px] overflow-y-auto custom-scrollbar p-1">
+                <div className="absolute top-full left-0 mt-2 w-full md:w-[120%] bg-white border border-slate-100 rounded-xl shadow-2xl z-[100] animate-fade-in-up p-1">
+                    <div className="max-h-[250px] overflow-y-auto custom-scrollbar">
                         <button
                             onClick={() => { onChange(''); setIsOpen(false); }}
-                            className="w-full text-left px-3 py-3 rounded-lg text-xs font-bold uppercase tracking-wide text-slate-500 hover:bg-white/5 hover:text-white transition-colors"
+                            className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold uppercase text-slate-400 hover:bg-slate-50 transition-colors"
                         >
                             - Clear -
                         </button>
@@ -55,7 +159,7 @@ const CustomDropdown = ({ label, options, value, onChange, icon: Icon, placehold
                             <button
                                 key={opt}
                                 onClick={() => { onChange(opt); setIsOpen(false); }}
-                                className={`w-full text-left px-3 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors ${value === opt ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${value === opt ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                             >
                                 {opt}
                             </button>
@@ -69,6 +173,7 @@ const CustomDropdown = ({ label, options, value, onChange, icon: Icon, placehold
 
 const StudentPortal = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     
     // --- VIEW STATE ---
     const [viewMode, setViewMode] = useState(location.state?.viewMode || 'landing'); 
@@ -76,30 +181,26 @@ const StudentPortal = () => {
     // --- AUTH STATE ---
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [isConnecting, setIsConnecting] = useState(false); // Controls the cinematic loader
     
     // --- DATA STATE ---
     const [studentAccount, setStudentAccount] = useState(null); 
     const [grades, setGrades] = useState([]);
     const [filteredGrades, setFilteredGrades] = useState([]);
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false); // Controls the API wait state
 
     // --- FILTER STATE ---
     const [selectedGradeLevel, setSelectedGradeLevel] = useState(''); 
     const [selectedYear, setSelectedYear] = useState('');
     const [selectedQuarter, setSelectedQuarter] = useState('');
     
-    // OPTIONS
     const gradeLevelOptions = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
-    
     const yearOptions = Array.from({ length: 10 }, (_, i) => {
         const start = 2025 + i;
         return `${start}-${start + 1}`;
     });
-
     const quarterOptions = ["1st Quarter", "2nd Quarter", "3rd Quarter", "4th Quarter"];
-
-    const navigate = useNavigate();
 
     // --- STRICT FILTER LOGIC ---
     useEffect(() => {
@@ -108,22 +209,26 @@ const StudentPortal = () => {
             return;
         }
 
-        const result = grades.filter(r => 
-            r.gradeLevel === selectedGradeLevel && 
-            r.schoolYear === selectedYear && 
-            r.quarter === selectedQuarter
-        );
+        const result = grades.filter(r => {
+            const dbGrade = r.gradeLevel ? r.gradeLevel.toString().replace(/\D/g, '') : ''; 
+            const selectGrade = selectedGradeLevel.replace(/\D/g, ''); 
+            
+            return dbGrade === selectGrade && 
+                   r.schoolYear === selectedYear && 
+                   r.quarter === selectedQuarter;
+        });
         
         setFilteredGrades(result);
     }, [selectedGradeLevel, selectedYear, selectedQuarter, grades]);
 
     // --- HANDLERS ---
-    const handleStudentLogin = async (e) => {
+    const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
         try {
+            // Check Firebase first
             const accountsRef = collection(db, "student_accounts");
             const q = query(
                 accountsRef, 
@@ -135,17 +240,30 @@ const StudentPortal = () => {
 
             if (snap.empty) {
                 setError("Invalid username or password.");
+                setLoading(false);
             } else {
+                // Credentials are good! Trigger cinematic sequence
+                setIsConnecting(true); // Shows the SystemConnector component
+                
+                // Prepare data in background
                 const accountData = { id: snap.docs[0].id, ...snap.docs[0].data() };
                 setStudentAccount(accountData);
                 await fetchStudentGrades(accountData.studentName);
-                setViewMode('portal');
+                
+                // Note: We don't setViewMode('portal') here yet. 
+                // The SystemConnector's onComplete callback handles that.
             }
         } catch (err) {
             console.error(err);
             setError("System connection error. Please try again.");
+            setLoading(false);
         }
+    };
+
+    const handleConnectionComplete = () => {
+        setIsConnecting(false);
         setLoading(false);
+        setViewMode('portal');
     };
 
     const fetchStudentGrades = async (targetName) => {
@@ -158,7 +276,6 @@ const StudentPortal = () => {
             
             const snap = await getDocs(q);
             const records = snap.docs.map(d => d.data());
-            
             const sorted = records.sort((a,b) => b.schoolYear.localeCompare(a.schoolYear));
             setGrades(sorted);
         } catch (err) {
@@ -178,334 +295,385 @@ const StudentPortal = () => {
         setViewMode('landing');
     };
 
-    // --- SELECTION CARD ---
-    const SelectionCard = ({ title, desc, icon, color, onClick, buttonText }) => (
-        <div 
-            onClick={onClick}
-            className={`group relative overflow-hidden rounded-[2rem] p-8 transition-all duration-300 hover:-translate-y-2 border border-white/5 cursor-pointer shadow-2xl ${color}`}
-        >
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-0 group-hover:opacity-5 blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
-            <div className="relative z-10 flex flex-col h-full items-start text-left">
-                <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-white mb-5 shadow-inner border border-white/10">
-                    {icon}
-                </div>
-                <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">{title}</h2>
-                <p className="text-white/70 text-sm font-medium leading-relaxed mb-8 max-w-sm">{desc}</p>
-                <div className="mt-auto flex items-center gap-2 text-white font-bold text-[10px] uppercase tracking-widest bg-black/20 px-4 py-2.5 rounded-xl border border-white/10 group-hover:bg-white group-hover:text-slate-900 transition-colors">
-                    {buttonText} {Icons.arrowLeft && <span className="rotate-180 inline-block">→</span>}
-                </div>
-            </div>
-        </div>
-    );
-
     // --- MAIN RENDER ---
     return (
-        <div className="min-h-screen bg-[#020617] flex flex-col relative overflow-hidden font-sans text-slate-200">
-            {/* Background */}
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <div className="absolute inset-0 bg-slate-950" />
-                <img src="/2.png" alt="bg" className="absolute inset-0 w-full h-full object-cover opacity-30" />
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/60 to-slate-950/90" />
-            </div>
+        <div className="min-h-screen flex flex-col font-sans text-slate-600 relative overflow-hidden">
+            
+            {/* 0. LIGHTWEIGHT AURORA */}
+            <OptimizedAurora />
 
-            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 md:p-6 w-full max-w-7xl mx-auto">
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 md:p-8 w-full max-w-7xl mx-auto">
                 
-                {/* 1. LANDING */}
+                {/* 1. LANDING PAGE - DISTINCT LIGHT CARDS */}
                 {viewMode === 'landing' && (
                     <div className="w-full max-w-5xl animate-fade-in-up">
-                        <div className="text-center mb-8 md:mb-12">
-                            <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-indigo-600 to-purple-800 rounded-2xl flex items-center justify-center mx-auto mb-6 text-white shadow-2xl border border-white/10">
-                                {Icons.document}
+                        <div className="text-center mb-10 md:mb-16">
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-[2rem] shadow-xl shadow-indigo-200/50 mb-6 text-indigo-600 border border-indigo-50 relative group cursor-default">
+                                <BookOpen strokeWidth={2} className="w-8 h-8 relative z-10" />
                             </div>
-                            <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight uppercase mb-4">
-                                Academic <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Records</span>
+                            <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter mb-4">
+                                Academic <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Portal</span>
                             </h1>
-                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs md:text-sm">Select your portal to continue</p>
+                            <p className="text-slate-500 font-medium text-base md:text-lg max-w-lg mx-auto leading-relaxed">
+                                Secure access to student records, grading systems, and administrative tools.
+                            </p>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 px-2 md:px-4">
-                            <SelectionCard 
-                                title="Student View"
-                                desc="Login with your username to check grades and academic history."
-                                icon={Icons.users}
-                                color="bg-gradient-to-br from-indigo-900 to-slate-900 hover:shadow-indigo-500/20"
-                                buttonText="Student Login"
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2 md:px-8">
+                            
+                            {/* STUDENT CARD - Indigo/Violet Theme (Glassy) */}
+                            <div 
                                 onClick={() => setViewMode('login')}
-                            />
-                            <SelectionCard 
-                                title="Teacher Admin"
-                                desc="Manage student accounts and academic grade records."
-                                icon={Icons.dashboard}
-                                color="bg-gradient-to-br from-slate-800 to-slate-950 hover:shadow-slate-500/20"
-                                buttonText="Access Admin Tools"
-                                onClick={() => setViewMode('teacher-select')} 
-                            />
+                                className="group relative overflow-hidden bg-white/70 backdrop-blur-md rounded-[2.5rem] p-8 border border-white shadow-xl shadow-indigo-100/40 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-200/50"
+                            >
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-100/60 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:bg-indigo-200/60 transition-colors duration-500"></div>
+                                
+                                <div className="relative z-10 flex flex-col h-full">
+                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm text-indigo-600 border border-indigo-50 group-hover:scale-110 transition-transform duration-300">
+                                        <GraduationCap className="w-7 h-7" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Student Access</h2>
+                                    <p className="text-slate-500 text-sm leading-relaxed mb-8">
+                                        Check your grades, view academic progress, and access your student profile.
+                                    </p>
+                                    <div className="mt-auto flex items-center justify-between">
+                                        <span className="text-sm font-bold text-indigo-600 group-hover:underline decoration-2 underline-offset-4">Login to Portal</span>
+                                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
+                                            <ArrowLeft className="w-4 h-4 rotate-180" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* FACULTY CARD - Emerald/Teal Theme (Light, Crisp, Distinct) */}
+                            {/* Changed from Dark Theme to Light Theme as requested */}
+                            <div 
+                                onClick={() => navigate('/teacher-dashboard')}
+                                className="group relative overflow-hidden bg-white/70 backdrop-blur-md rounded-[2.5rem] p-8 border border-emerald-50 shadow-xl shadow-emerald-100/40 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-200/50"
+                            >
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-100/60 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:bg-emerald-200/60 transition-colors duration-500"></div>
+                                <div className="absolute bottom-0 left-0 w-40 h-40 bg-teal-100/40 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3"></div>
+
+                                <div className="relative z-10 flex flex-col h-full">
+                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm text-emerald-600 border border-emerald-50 group-hover:scale-110 transition-transform duration-300">
+                                        <LayoutDashboard className="w-7 h-7" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Faculty & Admin</h2>
+                                    <p className="text-slate-500 text-sm leading-relaxed mb-8">
+                                        Manage student accounts, input grades, and oversee academic records.
+                                    </p>
+                                    <div className="mt-auto flex items-center justify-between">
+                                        <span className="text-sm font-bold text-emerald-600 group-hover:underline decoration-2 underline-offset-4">Open Dashboard</span>
+                                        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
+                                            <ArrowLeft className="w-4 h-4 rotate-180" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="mt-12 md:mt-16 text-center">
-                            <Link to="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest group">
-                                {Icons.arrowLeft} <span>Back to Main Portal</span>
+                        
+                        <div className="mt-12 text-center">
+                            <Link to="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-colors text-xs font-bold uppercase tracking-widest">
+                                <ArrowLeft className="w-3 h-3" /> Back to Home
                             </Link>
                         </div>
                     </div>
                 )}
 
-                {/* 2. TEACHER SELECT */}
-                {viewMode === 'teacher-select' && (
-                    <div className="w-full max-w-5xl animate-fade-in-up">
-                        <div className="text-center mb-8 md:mb-12">
-                            <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight mb-2">Teacher Administration</h2>
-                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Choose a management tool</p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 px-2 md:px-4">
-                            <SelectionCard 
-                                title="Accounts Manager"
-                                desc="Create and manage student mock login credentials."
-                                icon={Icons.users}
-                                color="bg-gradient-to-br from-emerald-900 to-slate-900 hover:shadow-emerald-500/20"
-                                buttonText="Manage Accounts"
-                                onClick={() => navigate('/academic-accounts')} 
-                            />
-                            <SelectionCard 
-                                title="Gradebook Manager"
-                                desc="Upload Excel gradesheets, edit records, and publish quarterly grades."
-                                icon={Icons.document}
-                                color="bg-gradient-to-br from-blue-900 to-slate-900 hover:shadow-blue-500/20"
-                                buttonText="Manage Grades"
-                                onClick={() => navigate('/teacher-grades')}
-                            />
-                        </div>
-                        <div className="mt-12 md:mt-16 text-center">
-                            <button onClick={() => setViewMode('landing')} className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest group">
-                                {Icons.arrowLeft} <span>Back to Selection</span>
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* 3. STUDENT LOGIN */}
+                {/* 2. STUDENT LOGIN - REFINED & CINEMATIC */}
                 {viewMode === 'login' && (
-                    <div className="w-full max-w-md animate-fade-in-up px-2">
-                        <div className="bg-slate-900/80 backdrop-blur-xl p-8 md:p-10 rounded-[2.5rem] shadow-2xl border border-white/10">
-                            <div className="text-center mb-8">
-                                <h2 className="text-2xl font-black text-white uppercase">Learner Login</h2>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Enter your account credentials</p>
+                    <div className="w-full max-w-sm animate-fade-in-up px-2 relative">
+                        
+                        {/* THE CINEMATIC LOADER COMPONENT (Overlay) */}
+                        {isConnecting && <SystemConnector onComplete={handleConnectionComplete} />}
+
+                        {/* Floating Card Design */}
+                        <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-indigo-200/50 overflow-hidden border border-white">
+                            
+                            {/* Decorative Header */}
+                            <div className="pt-10 pb-6 text-center bg-gradient-to-b from-slate-50 to-transparent">
+                                <div className="w-16 h-16 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center mx-auto mb-4 text-indigo-600">
+                                    <Fingerprint strokeWidth={1.5} className="w-8 h-8" />
+                                </div>
+                                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back</h2>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                    Secure Student Portal
+                                </p>
                             </div>
-                            <form onSubmit={handleStudentLogin} className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-1 mb-1 block">Username</label>
-                                    <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500 transition-all placeholder:text-slate-600 text-sm" placeholder="ENTER USERNAME" required />
+                            
+                            <div className="px-8 pb-10">
+                                <form onSubmit={handleLoginSubmit} className="space-y-4">
+                                    
+                                    {/* USERNAME FIELD */}
+                                    <div className="group relative">
+                                        <label className="absolute -top-2 left-4 px-2 bg-white text-[10px] font-bold text-indigo-500 uppercase tracking-wider transition-all opacity-0 group-focus-within:opacity-100 group-focus-within:top-[-8px] z-10">
+                                            Student ID
+                                        </label>
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
+                                            <User className="w-5 h-5" />
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            value={username} 
+                                            onChange={e => setUsername(e.target.value)} 
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-12 py-4 text-slate-900 font-semibold outline-none transition-all placeholder:text-slate-400 placeholder:text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
+                                            placeholder="Enter Student ID" 
+                                            required 
+                                        />
+                                    </div>
+
+                                    {/* PASSWORD FIELD */}
+                                    <div className="group relative">
+                                        <label className="absolute -top-2 left-4 px-2 bg-white text-[10px] font-bold text-indigo-500 uppercase tracking-wider transition-all opacity-0 group-focus-within:opacity-100 group-focus-within:top-[-8px] z-10">
+                                            Password
+                                        </label>
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
+                                            <ShieldCheck className="w-5 h-5" />
+                                        </div>
+                                        <input 
+                                            type="password" 
+                                            value={password} 
+                                            onChange={e => setPassword(e.target.value)} 
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-12 py-4 text-slate-900 font-semibold outline-none transition-all placeholder:text-slate-400 placeholder:text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
+                                            placeholder="Enter Password" 
+                                            required 
+                                        />
+                                    </div>
+                                    
+                                    {error && (
+                                        <div className="bg-red-50 text-red-500 text-xs font-bold p-3 rounded-xl flex items-center justify-center gap-2 border border-red-100 animate-shake">
+                                            <XCircle className="w-4 h-4 shrink-0" /> {error}
+                                        </div>
+                                    )}
+                                    
+                                    <button 
+                                        disabled={loading} 
+                                        className="w-full bg-slate-900 hover:bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                <span>Verifying...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>Access Portal</span>
+                                                <ArrowLeft className="w-4 h-4 rotate-180" />
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
+                                
+                                <div className="mt-6 text-center">
+                                    <button 
+                                        onClick={() => setViewMode('landing')} 
+                                        className="text-xs font-bold text-slate-400 hover:text-indigo-500 transition-colors"
+                                    >
+                                        Return to Selection
+                                    </button>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-1 mb-1 block">Password</label>
-                                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-indigo-500 transition-all placeholder:text-slate-600 text-sm" placeholder="ENTER PASSWORD" required />
-                                </div>
-                                {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold p-3 rounded-xl text-center flex items-center justify-center gap-2">{Icons.alert} {error}</div>}
-                                <button disabled={loading} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg hover:shadow-indigo-500/20 transition-all hover:-translate-y-1 text-xs">
-                                    {loading ? 'Authenticating...' : 'View My Grades'}
-                                </button>
-                            </form>
-                            <button onClick={() => setViewMode('landing')} className="w-full mt-4 py-3 text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Cancel</button>
+                            </div>
                         </div>
                     </div>
                 )}
 
-                {/* 4. STUDENT PORTAL DASHBOARD */}
+                {/* 3. STUDENT PORTAL DASHBOARD (Existing Dashboard Logic) */}
                 {viewMode === 'portal' && studentAccount && (
                     <div className="w-full max-w-6xl animate-fade-in pb-20">
-                        {/* NAV HEADER */}
-                        <div className="flex items-center justify-between mb-4 md:mb-6 px-1">
+                        {/* HEADER */}
+                        <header className="flex items-center justify-between mb-8 px-2">
                             <button 
                                 onClick={handleLogout}
-                                className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
+                                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 backdrop-blur-sm border border-slate-200 text-slate-600 hover:border-red-100 hover:bg-red-50 hover:text-red-600 transition-all shadow-sm"
                             >
-                                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                                <span className="text-xs font-bold uppercase tracking-widest">Back to Menu</span>
+                                <LogOut className="w-4 h-4" />
+                                <span className="text-xs font-bold uppercase tracking-wider">Log Out</span>
                             </button>
-                            <span className="hidden md:block text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                Student Digital Portal
-                            </span>
-                        </div>
+                            <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-slate-200 shadow-sm">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">System Online</span>
+                            </div>
+                        </header>
 
-                        {/* PROFILE CARD */}
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-6 bg-slate-900/50 backdrop-blur-md p-6 md:p-8 rounded-[2rem] border border-white/5 shadow-xl">
-                            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 text-center md:text-left w-full">
-                                <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-indigo-600 to-violet-800 rounded-3xl flex items-center justify-center text-3xl md:text-4xl font-black text-white shadow-2xl border border-white/10 shrink-0">
+                        {/* STUDENT PROFILE */}
+                        <div className="bg-white/90 backdrop-blur-md rounded-[2rem] p-6 md:p-10 border border-white shadow-xl shadow-indigo-100/50 mb-8 relative overflow-hidden z-10">
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none opacity-60"></div>
+                            
+                            <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 md:gap-8">
+                                <div className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[2rem] flex items-center justify-center text-4xl md:text-6xl font-black text-white shadow-lg shrink-0 ring-4 ring-white">
                                     {studentAccount.studentName ? studentAccount.studentName.charAt(0) : 'S'}
                                 </div>
-                                <div className="min-w-0">
-                                    <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight leading-none mb-3 break-words">
+                                <div className="text-center md:text-left flex-1">
+                                    <div className="inline-flex items-center gap-2 mb-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100">
+                                        <Sparkles className="w-3 h-3 text-indigo-500" />
+                                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Student Account</span>
+                                    </div>
+                                    <h1 className="text-3xl md:text-5xl font-black text-slate-900 uppercase tracking-tight mb-2">
                                         {studentAccount.studentName}
                                     </h1>
-                                    <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                                        <span className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                                            {studentAccount.username}
-                                        </span>
-                                        <span className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                            Active
-                                        </span>
+                                    <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
+                                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                                            <User className="w-3 h-3" />
+                                            ID: {studentAccount.username}
+                                        </div>
+                                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider border border-emerald-100">
+                                            <CheckCircle className="w-3 h-3" />
+                                            Status: Enrolled
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* FILTER BAR (UPDATED: Grid on mobile for 1 row) */}
-                        <div className="mb-6 grid grid-cols-3 md:flex md:flex-row items-end gap-2 px-1">
-                            <CustomDropdown 
-                                label="Grade Level"
-                                options={gradeLevelOptions}
-                                value={selectedGradeLevel}
-                                onChange={setSelectedGradeLevel}
-                                icon={GraduationCap}
-                                placeholder="Grade"
-                            />
-                            <CustomDropdown 
-                                label="School Year"
-                                options={yearOptions}
-                                value={selectedYear}
-                                onChange={setSelectedYear}
-                                icon={Calendar}
-                                placeholder="Year"
-                            />
-                            <CustomDropdown 
-                                label="Academic Quarter"
-                                options={quarterOptions}
-                                value={selectedQuarter}
-                                onChange={setSelectedQuarter}
-                                icon={Clock}
-                                placeholder="Qtr"
-                            />
-                            
-                            {(selectedGradeLevel || selectedYear || selectedQuarter) && (
-                                <button 
-                                    onClick={() => { setSelectedGradeLevel(''); setSelectedYear(''); setSelectedQuarter(''); }}
-                                    // UPDATED: Spans all 3 cols on mobile, smaller height and text
-                                    className="col-span-3 md:col-span-1 w-full md:w-auto h-8 md:h-[46px] px-6 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
-                                >
-                                    <Filter className="w-3 h-3" /> Clear Filters
-                                </button>
-                            )}
+                        {/* FILTERS */}
+                        <div className="relative z-30 bg-white/80 backdrop-blur-md p-4 rounded-3xl border border-white shadow-lg mb-8 overflow-visible">
+                            <div className="grid grid-cols-3 md:flex md:flex-row items-end gap-3">
+                                <CustomDropdown 
+                                    label="Grade Level"
+                                    options={gradeLevelOptions}
+                                    value={selectedGradeLevel}
+                                    onChange={setSelectedGradeLevel}
+                                    icon={GraduationCap}
+                                    placeholder="Level"
+                                />
+                                <CustomDropdown 
+                                    label="School Year"
+                                    options={yearOptions}
+                                    value={selectedYear}
+                                    onChange={setSelectedYear}
+                                    icon={Calendar}
+                                    placeholder="Year"
+                                />
+                                <CustomDropdown 
+                                    label="Academic Quarter"
+                                    options={quarterOptions}
+                                    value={selectedQuarter}
+                                    onChange={setSelectedQuarter}
+                                    icon={Clock}
+                                    placeholder="Quarter"
+                                />
+                                
+                                {(selectedGradeLevel || selectedYear || selectedQuarter) && (
+                                    <button 
+                                        onClick={() => { setSelectedGradeLevel(''); setSelectedYear(''); setSelectedQuarter(''); }}
+                                        className="col-span-3 md:col-span-1 h-[42px] md:h-[46px] px-4 rounded-xl border border-slate-200 hover:border-red-200 hover:bg-red-50 text-slate-500 hover:text-red-600 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 md:mt-0"
+                                    >
+                                        <Filter className="w-3 h-3" /> <span className="md:hidden lg:inline">Reset</span>
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
-                        {/* CONTENT DISPLAY */}
-                        {!selectedGradeLevel || !selectedYear || !selectedQuarter ? (
-                            <div className="text-center py-20 md:py-32 bg-slate-900/30 rounded-[2.5rem] border border-dashed border-white/5 mx-1 animate-fade-in-up">
-                                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                                    <Pointer className="w-8 h-8 text-indigo-400 animate-bounce" />
+                        {/* CONTENT AREA */}
+                        <div className="relative z-0">
+                            {!selectedGradeLevel || !selectedYear || !selectedQuarter ? (
+                                <div className="flex flex-col items-center justify-center py-20 bg-white/60 backdrop-blur-sm rounded-[2rem] border-2 border-dashed border-slate-300 text-center animate-fade-in-up">
+                                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
+                                        <Pointer className="w-8 h-8 text-slate-400" />
+                                    </div>
+                                    <h3 className="text-slate-900 font-bold text-xl">Select Academic Period</h3>
+                                    <p className="text-slate-500 text-sm mt-1 max-w-xs mx-auto">
+                                        Choose your Grade Level, Year, and Quarter above to view your report card.
+                                    </p>
                                 </div>
-                                <h3 className="text-white font-bold text-lg mb-2">Select Academic Period</h3>
-                                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs px-4">
-                                    Please select your Grade Level, School Year, and Quarter to view grades.
-                                </p>
-                            </div>
-                        ) : filteredGrades.length === 0 ? (
-                            <div className="text-center py-20 md:py-32 bg-slate-900/30 rounded-[2.5rem] border border-dashed border-white/5 mx-1 animate-fade-in">
-                                <div className="text-4xl md:text-5xl mb-6 opacity-20 grayscale">📂</div>
-                                <h3 className="text-white font-bold text-lg mb-2">No Records Found</h3>
-                                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs px-4">
-                                    No records match {selectedGradeLevel} ({selectedYear}, {selectedQuarter}).
-                                </p>
-                            </div>
-                        ) : (
-                            // --- DOCUMENT VIEW ---
-                            <div className="animate-fade-in">
-                                {filteredGrades.map((record, idx) => (
-                                    <div key={idx} className="bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl mb-8 relative">
-                                        
-                                        {/* DOCUMENT HEADER */}
-                                        <div className="bg-gradient-to-r from-indigo-900/40 to-slate-900/40 border-b border-white/10 p-6 md:p-8 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                                                    <FileText className="w-6 h-6" />
+                            ) : filteredGrades.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 bg-white/60 backdrop-blur-sm rounded-[2rem] border-2 border-dashed border-slate-300 text-center animate-fade-in">
+                                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 grayscale opacity-50">
+                                        <BookOpen className="w-8 h-8 text-slate-400" />
+                                    </div>
+                                    <h3 className="text-slate-900 font-bold text-xl">No Records Found</h3>
+                                    <p className="text-slate-500 text-sm mt-1">
+                                        We couldn't find a report card for {selectedGradeLevel} ({selectedQuarter}).
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-8 animate-fade-in">
+                                    {filteredGrades.map((record, idx) => (
+                                        <div key={idx} className="bg-white/90 backdrop-blur-sm rounded-[2.5rem] shadow-xl border border-white overflow-hidden ring-1 ring-slate-100">
+                                            
+                                            {/* REPORT HEADER */}
+                                            <div className="bg-slate-50/50 border-b border-slate-200 p-6 md:p-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                                                <div className="flex items-center gap-5 text-center md:text-left">
+                                                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                                                        <FileText className="w-8 h-8" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-xl font-black text-slate-900 uppercase">Report Card</h3>
+                                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">
+                                                            Official Grade Release
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">Report Card</h3>
-                                                    <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                                        Official Grade Record
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-center md:items-end">
-                                                <div className="text-sm font-bold text-white uppercase">{record.quarter}</div>
-                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                                    SY {record.schoolYear} • {record.gradeLevel} - {record.section}
+                                                <div className="flex flex-col items-center md:items-end bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm">
+                                                    <div className="text-sm font-bold text-indigo-600 uppercase">{record.quarter}</div>
+                                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                                                        SY {record.schoolYear} • {record.gradeLevel} - {record.section}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        {/* DOCUMENT TABLE BODY */}
-                                        <div className="p-0 md:p-8">
-                                            <div className="overflow-hidden md:rounded-xl border-t md:border border-white/10">
-                                                
-                                                {/* Table Header (Desktop) */}
-                                                <div className="hidden md:flex bg-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest p-4 border-b border-white/5">
-                                                    <div className="flex-1">Learning Area</div>
-                                                    <div className="w-32 text-center">Final Grade</div>
-                                                    <div className="w-32 text-center">Remarks</div>
-                                                </div>
+                                            {/* GRADES TABLE */}
+                                            <div className="p-0 md:p-8">
+                                                <div className="overflow-hidden md:rounded-3xl md:border border-slate-200 bg-white">
+                                                    <div className="hidden md:flex bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider p-4 border-b border-slate-200">
+                                                        <div className="flex-1 pl-4">Subject / Learning Area</div>
+                                                        <div className="w-32 text-center">Grade</div>
+                                                        <div className="w-32 text-center">Status</div>
+                                                    </div>
 
-                                                {/* Rows */}
-                                                <div className="divide-y divide-white/5">
-                                                    {record.grades && Object.entries(record.grades).map(([subj, grade]) => {
-                                                        const isPassing = parseFloat(grade) >= 75;
-                                                        return (
-                                                            <div key={subj} className="group flex flex-row md:items-center p-4 md:px-4 md:py-3 odd:bg-transparent even:bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-                                                                
-                                                                {/* Subject Name */}
-                                                                <div className="flex-1 flex items-center gap-3">
-                                                                    <div className={`md:hidden w-1 h-8 rounded-full ${isPassing ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                                                                    <span className="text-xs md:text-sm font-bold text-slate-200 uppercase tracking-wide leading-tight py-1">
-                                                                        {subj}
-                                                                    </span>
-                                                                </div>
-
-                                                                {/* Grade & Remarks Wrapper */}
-                                                                <div className="flex flex-col md:flex-row items-center md:items-center justify-center gap-2 md:gap-0 min-w-[90px] md:min-w-0">
-                                                                    
-                                                                    {/* Grade (UPDATED: Reduced from text-3xl to text-2xl) */}
-                                                                    <div className="w-full md:w-32 text-center md:text-center">
-                                                                        <span className={`text-2xl md:text-base font-black font-mono ${isPassing ? 'text-white' : 'text-red-400'}`}>
-                                                                            {grade}
+                                                    <div className="divide-y divide-slate-100">
+                                                        {record.grades && Object.entries(record.grades).map(([subj, grade]) => {
+                                                            const isPassing = parseFloat(grade) >= 75;
+                                                            return (
+                                                                <div key={subj} className="group flex flex-row items-center p-5 md:px-6 md:py-5 hover:bg-slate-50 transition-colors">
+                                                                    <div className="flex-1 flex items-center gap-4">
+                                                                        <div className={`md:hidden w-1.5 h-10 rounded-full ${isPassing ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
+                                                                        <span className="text-sm md:text-sm font-bold text-slate-700 uppercase leading-snug">
+                                                                            {subj}
                                                                         </span>
-                                                                        <span className="md:hidden text-[9px] text-slate-500 font-bold uppercase block -mt-1">Final</span>
                                                                     </div>
-
-                                                                    {/* Remarks */}
-                                                                    <div className="w-full md:w-32 flex justify-center md:justify-center">
-                                                                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isPassing ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                                                                            {isPassing ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                                                            {isPassing ? 'Passed' : 'Failed'}
+                                                                    <div className="flex flex-col md:flex-row items-center gap-1 md:gap-0 min-w-[80px] md:min-w-0">
+                                                                        <div className="w-full md:w-32 text-center">
+                                                                            <span className={`text-xl md:text-base font-black font-mono ${isPassing ? 'text-slate-800' : 'text-red-500'}`}>
+                                                                                {grade}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="w-full md:w-32 flex justify-center">
+                                                                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${isPassing ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}>
+                                                                                {isPassing ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                                                                {isPassing ? 'Passed' : 'Failed'}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* DOCUMENT FOOTER (Summary) */}
-                                        <div className="bg-black/20 border-t border-white/10 p-6 md:p-8 flex justify-between items-center">
-                                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                Based on DepEd Grading System
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-right">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">General Average</div>
-                                                    <div className={`text-2xl md:text-3xl font-black leading-none ${record.generalAverage >= 75 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                        {record.generalAverage || '—'}
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
-                                                <div className={`hidden md:flex w-12 h-12 rounded-full items-center justify-center border-2 ${record.generalAverage >= 75 ? 'border-emerald-500 text-emerald-500' : 'border-red-500 text-red-500'}`}>
-                                                    {record.generalAverage >= 75 ? <CheckCircle className="w-6 h-6" /> : <XCircle className="w-6 h-6" />}
+                                            </div>
+
+                                            {/* SUMMARY FOOTER */}
+                                            <div className="bg-slate-50/50 border-t border-slate-200 p-6 md:p-8 flex justify-between items-center">
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:block">
+                                                    Based on DepEd Grading System K-12
+                                                </div>
+                                                <div className="flex items-center gap-6 w-full md:w-auto justify-end">
+                                                    <div className="text-right">
+                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">General Average</div>
+                                                        <div className={`text-4xl font-black leading-none ${record.generalAverage >= 75 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                            {record.generalAverage || '—'}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center border-4 ${record.generalAverage >= 75 ? 'border-emerald-100 text-emerald-500 bg-white shadow-lg shadow-emerald-100' : 'border-red-100 text-red-500 bg-white shadow-lg shadow-red-100'}`}>
+                                                        {record.generalAverage >= 75 ? <CheckCircle className="w-8 h-8" weight="fill" /> : <XCircle className="w-8 h-8" weight="fill" />}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
