@@ -225,11 +225,26 @@ const EnrollmentAnalytics = ({ students }) => {
 
         activeStudents.forEach(s => {
             if (s.lastSchoolName && s.lastSchoolName.trim()) {
-                const schoolNameKey = s.lastSchoolName.trim().toUpperCase();
+                // --- NEW NORMALIZATION LOGIC ---
+                const rawName = s.lastSchoolName.trim();
+                const upperName = rawName.toUpperCase();
+                
+                let schoolNameKey = upperName;
+                let displayName = rawName;
+
+                // Check for variations and standardize
+                if (
+                    upperName === "CELMS" || 
+                    (upperName.includes("LIMSIACO") && upperName.includes("ELISEO"))
+                ) {
+                    schoolNameKey = "CONG.ELISEO P. LIMSIACO SR. MEMORIAL SCHOOL";
+                    displayName = "CONG.ELISEO P. LIMSIACO SR. MEMORIAL SCHOOL";
+                }
+                // ---------------------------------
                 
                 if (!byLastSchool[schoolNameKey]) {
                     byLastSchool[schoolNameKey] = {
-                        name: s.lastSchoolName.trim(), 
+                        name: displayName, // Use standardized name
                         total: 0,
                         overallMale: 0, 
                         overallFemale: 0, 

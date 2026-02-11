@@ -1,9 +1,8 @@
-// src/pages/AdminDashboard.jsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'; 
+import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore'; 
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     LayoutDashboard, 
@@ -18,7 +17,9 @@ import {
     CheckCircle2, 
     AlertCircle, 
     XCircle, 
-    Trash2
+    Trash2,
+    Wallet,
+    Calendar 
 } from 'lucide-react';
 
 // IMPORT COMPONENTS
@@ -29,6 +30,13 @@ import SectionManager from '../components/admin/SectionManager';
 import MasterList from '../components/admin/MasterList';
 import StudentRow from '../components/admin/StudentRow';
 import EnrollmentAnalytics from '../components/admin/EnrollmentAnalytics'; 
+import CashierPanel from '../components/admin/CashierPanel';
+
+// --- UTILS ---
+import { calculateTotalFees } from '../utils/FeeConstants'; 
+
+// --- CONFIGURATION ---
+const SCHOOL_YEARS = ["2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028"];
 
 // --- STYLES ---
 const styles = `
@@ -45,7 +53,6 @@ const styles = `
     transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.0);
     will-change: width;
   }
-  /* Custom Scrollbar to hide on mobile but allow scrolling */
   .custom-scrollbar::-webkit-scrollbar { width: 0px; height: 0px; }
 `;
 
@@ -60,12 +67,13 @@ const AuroraBackground = () => (
 );
 
 // --- COMPONENT: CINEMATIC ADMIN SIDEBAR (DESKTOP) ---
-const AdminSidebar = ({ activeTab, setActiveTab, onLogout }) => {
+const AdminSidebar = ({ activeTab, onNavigate, onLogout }) => {
     const navItems = [
         { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
         { id: 'queue', label: 'Enrollment Queue', icon: FolderOpen },
         { id: 'students', label: 'Masterlist', icon: Users },
         { id: 'sections', label: 'Sections', icon: Layers },
+        { id: 'cashier', label: 'Cashier', icon: Wallet },
         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     ];
 
@@ -94,7 +102,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, onLogout }) => {
                         return (
                             <button
                                 key={item.id}
-                                onClick={() => setActiveTab(item.id)}
+                                onClick={() => onNavigate(item.id)} 
                                 className={`relative flex items-center h-14 rounded-2xl group/item cursor-pointer overflow-hidden transition-all duration-200 ${isActive ? 'bg-slate-100' : 'hover:bg-slate-50'}`}
                             >
                                 <div className="min-w-[3.5rem] h-full flex justify-center items-center z-10">
@@ -239,22 +247,51 @@ const LoginView = () => {
 
 // --- LAYOUT: DASHBOARD ---
 const DashboardLayout = ({ user }) => {
+    // --- ROUTER HOOKS ---
+    const location = useLocation();
+    const navigate = useNavigate();
+
     // --- STATE ---
     const [students, setStudents] = useState([]);
     const [sections, setSections] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [activeTab, setActiveTab] = useState('dashboard');
     const [filterStatus, setFilterStatus] = useState('All');
-    const [selectedYear, setSelectedYear] = useState('2026-2027');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile Menu State
     
-    // --- MODAL STATE ---
+    // --- SCHOOL YEAR STATE ---
+    const [selectedYear, setSelectedYear] = useState('2026-2027');
+    
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
     const [verifyModal, setVerifyModal] = useState(null); 
     const [transferModal, setTransferModal] = useState(null);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' });
 
-    // --- FETCH DATA ---
+    // --- DETERMINE ACTIVE TAB FROM URL ---
+    const getActiveTab = () => {
+        const path = location.pathname;
+        if (path.includes('/masterlist')) return 'students';
+        if (path.includes('/queue')) return 'queue';
+        if (path.includes('/sections')) return 'sections';
+        if (path.includes('/cashier')) return 'cashier';
+        if (path.includes('/analytics')) return 'analytics';
+        return 'dashboard'; 
+    };
+
+    const activeTab = getActiveTab();
+
+    // --- HANDLE NAVIGATION ---
+    const handleNavigation = (tabId) => {
+        switch(tabId) {
+            case 'students': navigate('/admin/masterlist'); break;
+            case 'queue': navigate('/admin/queue'); break;
+            case 'sections': navigate('/admin/sections'); break;
+            case 'cashier': navigate('/admin/cashier'); break;
+            case 'analytics': navigate('/admin/analytics'); break;
+            default: navigate('/admin/dashboard'); break;
+        }
+    };
+
+    // --- FETCH DATA (DEPENDS ON SCHOOL YEAR) ---
     useEffect(() => { fetchStudents(); }, [selectedYear]);
     useEffect(() => { fetchSections(); }, []);
 
@@ -264,6 +301,8 @@ const DashboardLayout = ({ user }) => {
             const q = query(collection(db, "enrollments"), where("schoolYear", "==", selectedYear)); 
             const snap = await getDocs(q);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            
+            // Sort by CreatedAt (Recent first)
             setStudents(data.map(s => ({ ...s, status: s.status || 'Pending' })).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
         } catch (err) { console.error(err); }
         setLoading(false);
@@ -314,14 +353,76 @@ const DashboardLayout = ({ user }) => {
         });
     };
 
+    // --- MODIFIED: HANDLE TRANSFER / PROMOTE WITH BACK ACCOUNT & STATUS UPDATE ---
     const handleTransferPromote = async (student, { targetSection, targetYear, targetGrade }) => {
         const isPromo = targetYear !== student.schoolYear;
+        
         confirmAction(isPromo ? "Promote Student?" : "Transfer Section?", `Confirm move to ${targetSection}?`, async () => {
             if (isPromo) {
-                const newRecord = { ...student, schoolYear: targetYear, gradeLevel: targetGrade, section: targetSection, status: 'Enrolled', enrolledAt: new Date(), createdAt: new Date(), studentType: 'Returning' };
-                delete newRecord.id; 
+                // --- PROMOTION LOGIC ---
+                
+                // 1. UPDATE OLD RECORD (Mark as Promoted)
+                const currentDocRef = doc(db, "enrollments", student.id);
+                await updateDoc(currentDocRef, { status: 'Promoted' });
+                updateStudentLocally(student.id, { status: 'Promoted' });
+
+                // 2. FETCH FRESH DATA TO GET ACCURATE BALANCE (FIX FOR STALE DATA)
+                const freshSnap = await getDoc(currentDocRef);
+                const freshData = freshSnap.data();
+                const unpaidBalance = freshData.soa?.balance || 0;
+                
+                // 3. Calculate Fresh Fees for New Grade
+                const baseFees = calculateTotalFees(targetGrade) || { 
+                    tuition: 0, standard: {}, nonStandard: {}, totalAssessment: 0 
+                };
+
+                const newFeeData = {
+                    ...baseFees,
+                    standard: { ...baseFees.standard },
+                    nonStandard: { ...baseFees.nonStandard }
+                };
+
+                // 4. Inject Back Account if exists
+                if (unpaidBalance > 0) {
+                    const backAccountLabel = `Back Account (SY ${student.schoolYear})`;
+                    newFeeData.standard[backAccountLabel] = unpaidBalance;
+                    newFeeData.totalAssessment += unpaidBalance;
+                    if(newFeeData.balance !== undefined) newFeeData.balance += unpaidBalance;
+                }
+
+                // 5. Create New Record for Next Year
+                const newRecord = {
+                    ...freshData, // Use fresh personal info
+                    schoolYear: targetYear,
+                    gradeLevel: targetGrade,
+                    section: targetSection,
+                    status: 'Enrolled', // Visible in Next Year
+                    enrolledAt: new Date(),
+                    createdAt: new Date(),
+                    studentType: 'Returning',
+                    
+                    // RESET FINANCIALS FOR NEW YEAR
+                    soa: {
+                        feeBreakdown: newFeeData,
+                        totalAssessment: newFeeData.totalAssessment,
+                        balance: newFeeData.totalAssessment, // New balance includes back account
+                        paymentStatus: 'Unpaid',
+                        payments: [],  
+                        subsidyAmount: 0, 
+                        subsidyType: null
+                    }
+                };
+                
+                // Remove ID so Firestore generates a new one
                 await addDoc(collection(db, "enrollments"), newRecord);
+
             } else {
+                // --- SECTION TRANSFER LOGIC (SAME YEAR) ---
+                if (targetGrade !== student.gradeLevel) {
+                    alert("Cannot change Grade Level during a Section Transfer. Use Promote instead.");
+                    return;
+                }
+
                 await updateDoc(doc(db, "enrollments", student.id), { section: targetSection });
                 updateStudentLocally(student.id, { section: targetSection });
             }
@@ -344,14 +445,27 @@ const DashboardLayout = ({ user }) => {
         }); 
     };
 
-    // --- FILTERING ---
-    const filtered = useMemo(() => {
+    // --- FILTERING (QUEUE) ---
+    const filteredQueue = useMemo(() => {
         return students.filter(s => {
             const matchesSearch = s.lastName.toLowerCase().includes(search.toLowerCase()) || s.firstName.toLowerCase().includes(search.toLowerCase()) || (s.lrn && s.lrn.includes(search));
+            
+            // STRICTLY EXCLUDE ENROLLED & PROMOTED FROM QUEUE
+            if (s.status === 'Enrolled' || s.status === 'Promoted') return false;
+
             const matchesStatus = filterStatus === 'All' || s.status === filterStatus;
             return matchesSearch && matchesStatus;
         });
     }, [students, search, filterStatus]);
+
+    // --- FILTERING (MASTERLIST) ---
+    const masterListStudents = useMemo(() => {
+        return students.filter(s => {
+            const matchesSearch = s.lastName.toLowerCase().includes(search.toLowerCase()) || s.firstName.toLowerCase().includes(search.toLowerCase()) || (s.lrn && s.lrn.includes(search));
+            // Show only officially enrolled or promoted
+            return matchesSearch && (s.status === 'Enrolled' || s.status === 'Promoted');
+        });
+    }, [students, search]);
 
     // --- STATS CALCULATION ---
     const stats = useMemo(() => {
@@ -370,15 +484,15 @@ const DashboardLayout = ({ user }) => {
             <AuroraBackground />
 
             {/* 1. CINEMATIC SIDEBAR (DESKTOP) */}
-            <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => signOut(auth)} />
+            <AdminSidebar activeTab={activeTab} onNavigate={handleNavigation} onLogout={() => signOut(auth)} />
 
             {/* 2. MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col h-full relative overflow-hidden z-10">
                 
-                {/* HEADER - Updated to fix Mobile View */}
+                {/* HEADER */}
                 <div className="bg-white/40 backdrop-blur-md border-b border-white/50 h-auto md:h-24 flex flex-col md:flex-row items-center justify-between px-4 py-4 md:px-8 shrink-0 shadow-sm pointer-events-none sticky top-0 z-40">
                     
-                    {/* Header Title Area - Responsive */}
+                    {/* Header Title Area */}
                     <div className="flex flex-row items-center justify-between w-full md:w-auto pointer-events-auto">
                         <div className="flex flex-col justify-center">
                             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
@@ -391,29 +505,49 @@ const DashboardLayout = ({ user }) => {
                             </h2>
                         </div>
                         
-                        {/* Mobile Menu Toggle (Only visible on mobile) */}
+                        {/* Mobile Menu Toggle */}
                         <button className="md:hidden p-2 text-slate-600" onClick={() => setIsSidebarOpen(true)}>
                             <Menu className="w-6 h-6" />
                         </button>
                     </div>
 
-                    {/* Search Bar Area */}
+                    {/* Search Bar & Year Selector Area */}
                     <div className="flex items-center gap-4 pointer-events-auto mt-4 md:mt-0 w-full md:w-auto">
-                        <div className="relative group w-full md:w-auto">
+                        
+                        {/* --- SCHOOL YEAR DROPDOWN --- */}
+                        <div className="relative group w-40 md:w-48">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Calendar className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <select 
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(e.target.value)}
+                                className="w-full pl-10 pr-8 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-[#800000] transition-all cursor-pointer appearance-none shadow-sm"
+                            >
+                                {SCHOOL_YEARS.map(year => (
+                                    <option key={year} value={year}>SY {year}</option>
+                                ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span className="text-xs text-slate-400">▼</span>
+                            </div>
+                        </div>
+
+                        <div className="relative group w-full md:w-64">
                             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#800000] transition-colors" />
                             <input 
                                 type="text" 
                                 placeholder="Search..." 
                                 value={search} 
                                 onChange={(e) => setSearch(e.target.value)} 
-                                className="pl-10 pr-4 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-[#800000] transition-all w-full md:w-64 shadow-sm"
+                                className="pl-10 pr-4 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-[#800000] transition-all w-full shadow-sm"
                             />
                         </div>
                     </div>
                 </div>
 
                 {/* SCROLLABLE CONTENT */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pb-32 md:pb-8"> {/* Added bottom padding for mobile dock */}
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pb-32 md:pb-8"> 
                     <AnimatePresence mode="wait">
                         
                         {/* DASHBOARD OVERVIEW (STATS ONLY) */}
@@ -447,7 +581,8 @@ const DashboardLayout = ({ user }) => {
                                             </div>
                                         </div>
                                         <div className="flex gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 overflow-x-auto max-w-full w-full sm:w-auto">
-                                            {['All', 'Pending', 'Enrolled', 'Rejected', 'Cancelled'].map(status => (
+                                            {/* REMOVED 'Enrolled' from this list */}
+                                            {['All', 'Pending', 'Rejected', 'Cancelled'].map(status => (
                                                 <button 
                                                     key={status} 
                                                     onClick={() => setFilterStatus(status)} 
@@ -467,7 +602,7 @@ const DashboardLayout = ({ user }) => {
                                                 <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                                                 <span className="text-xs font-bold uppercase tracking-widest">Loading Records...</span>
                                             </div>
-                                        ) : filtered.length === 0 ? (
+                                        ) : filteredQueue.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-4 py-10">
                                                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                                                     <FolderOpen className="w-8 h-8" />
@@ -476,7 +611,7 @@ const DashboardLayout = ({ user }) => {
                                             </div>
                                         ) : (
                                             <div className="w-full">
-                                                {filtered.map(s => <StudentRow key={s.id} s={s} onVerify={setVerifyModal} onDelete={handleDelete} />)}
+                                                {filteredQueue.map(s => <StudentRow key={s.id} s={s} onVerify={setVerifyModal} onDelete={handleDelete} />)}
                                             </div>
                                         )}
                                     </div>
@@ -493,7 +628,16 @@ const DashboardLayout = ({ user }) => {
                         {activeTab === 'students' && (
                             <motion.div key="students" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                 <div className="bg-white/70 backdrop-blur-md rounded-[2rem] border border-white shadow-xl overflow-hidden min-h-[500px] flex flex-col relative">
-                                    <MasterList students={filtered} onVerify={setVerifyModal} onRefresh={fetchStudents} />
+                                    {/* USE masterListStudents HERE */}
+                                    <MasterList students={masterListStudents} onVerify={setVerifyModal} onRefresh={fetchStudents} />
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'cashier' && (
+                            <motion.div key="cashier" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+                                <div className="bg-white/70 backdrop-blur-md rounded-[2rem] border border-white shadow-xl overflow-hidden h-[600px] flex flex-col relative">
+                                    <CashierPanel />
                                 </div>
                             </motion.div>
                         )}
@@ -508,28 +652,31 @@ const DashboardLayout = ({ user }) => {
                 </div>
             </div>
 
-            {/* 3. MOBILE BOTTOM NAV (Glass Dock) - Added Feature */}
-            <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[320px]">
+            {/* 3. MOBILE BOTTOM NAV (Glass Dock) */}
+            <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[380px]"> 
                 <div className="neural-glass rounded-full px-4 py-3 flex items-center justify-between shadow-2xl mx-4">
-                    <button onClick={() => setActiveTab('dashboard')} className={`p-2 transition-colors ${activeTab === 'dashboard' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                    <button onClick={() => handleNavigation('dashboard')} className={`p-2 transition-colors ${activeTab === 'dashboard' ? 'text-[#800000]' : 'text-slate-400'}`}>
                         <LayoutDashboard className="w-6 h-6" fill={activeTab === 'dashboard' ? "currentColor" : "none"} />
                     </button>
-                    <button onClick={() => setActiveTab('queue')} className={`p-2 transition-colors ${activeTab === 'queue' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                    <button onClick={() => handleNavigation('queue')} className={`p-2 transition-colors ${activeTab === 'queue' ? 'text-[#800000]' : 'text-slate-400'}`}>
                         <FolderOpen className="w-6 h-6" fill={activeTab === 'queue' ? "currentColor" : "none"} />
                     </button>
-                     <button onClick={() => setActiveTab('students')} className={`p-2 transition-colors ${activeTab === 'students' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                     <button onClick={() => handleNavigation('students')} className={`p-2 transition-colors ${activeTab === 'students' ? 'text-[#800000]' : 'text-slate-400'}`}>
                         <Users className="w-6 h-6" fill={activeTab === 'students' ? "currentColor" : "none"} />
                     </button>
-                    <button onClick={() => setActiveTab('sections')} className={`p-2 transition-colors ${activeTab === 'sections' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                    <button onClick={() => handleNavigation('sections')} className={`p-2 transition-colors ${activeTab === 'sections' ? 'text-[#800000]' : 'text-slate-400'}`}>
                         <Layers className="w-6 h-6" fill={activeTab === 'sections' ? "currentColor" : "none"} />
                     </button>
-                     <button onClick={() => setActiveTab('analytics')} className={`p-2 transition-colors ${activeTab === 'analytics' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                    <button onClick={() => handleNavigation('cashier')} className={`p-2 transition-colors ${activeTab === 'cashier' ? 'text-[#800000]' : 'text-slate-400'}`}>
+                        <Wallet className="w-6 h-6" fill={activeTab === 'cashier' ? "currentColor" : "none"} />
+                    </button>
+                     <button onClick={() => handleNavigation('analytics')} className={`p-2 transition-colors ${activeTab === 'analytics' ? 'text-[#800000]' : 'text-slate-400'}`}>
                         <BarChart3 className="w-6 h-6" fill={activeTab === 'analytics' ? "currentColor" : "none"} />
                     </button>
                 </div>
             </div>
 
-            {/* MOBILE SIDE MENU OVERLAY (For Extra Options like Logout) */}
+            {/* MOBILE SIDE MENU OVERLAY */}
             <AnimatePresence>
                 {isSidebarOpen && (
                     <>

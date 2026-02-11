@@ -20,7 +20,7 @@ function App() {
         <Route path="/enrollment-landing" element={<LandingPage />} />
         <Route path="/enroll" element={<EnrollmentForm />} />
         {/* This dashboard is strictly for Enrollment/Section Management */}
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/*" element={<AdminDashboard />} />
         
         {/* --- ACADEMIC RECORDS ROUTES --- */}
         {/* Student View (Login with LRN) */}

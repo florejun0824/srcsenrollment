@@ -164,7 +164,6 @@ const EnrollmentPDF = ({ data }) => {
   const isMale = data.sex === 'Male';
   const isFemale = data.sex === 'Female';
   
-  // LOGIC: Show Previous School Info ONLY for specific grade levels
   const targetGrades = ['Pre-Kindergarten 1', 'Pre-Kindergarten 2', 'Kinder', 'Grade 7', 'Grade 11 (SHS)'];
   const showPrevSchool = targetGrades.includes(data.gradeLevel) || data.studentType === 'Transferee' || data.studentType === 'Returning';
 
@@ -172,6 +171,10 @@ const EnrollmentPDF = ({ data }) => {
   if (data.signatory === 'Mother') parentSignatoryName = data.motherName;
   else if (data.signatory === 'Guardian') parentSignatoryName = data.guardianName;
   else parentSignatoryName = data.fatherName; 
+  
+  // --- LRN DISPLAY LOGIC ---
+  // Only show LRN if "With LRN" is selected. 
+  const displayLRN = data.lrnStatus === 'With LRN' ? data.lrn : '';
 
   return (
     <Document>
@@ -185,7 +188,6 @@ const EnrollmentPDF = ({ data }) => {
         {/* CONTROLS ROW */}
         <View style={{ border: '1px solid #000', padding: 4, marginTop: 2, backgroundColor: '#FAFAFA' }}>
           
-          {/* Row 1: School Year & LRN Status */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={{ fontSize: 8, color: '#444', marginRight: 4 }}>School Year:</Text>
@@ -194,11 +196,11 @@ const EnrollmentPDF = ({ data }) => {
              <View style={{ flexDirection: 'row' }}>
                  <Text style={{ fontSize: 6, marginRight: 6, color: '#555', textTransform: 'uppercase', paddingTop: 1 }}>LRN Status:</Text>
                  <Checkbox label="With LRN" checked={data.lrnStatus === 'With LRN'} />
-                 <Checkbox label="No LRN" checked={data.lrnStatus === 'No LRN'} />
+                 {/* MODIFIED: 'No LRN' checkbox is ALWAYS blank (false), as requested */}
+                 <Checkbox label="No LRN" checked={false} />
              </View>
           </View>
 
-          {/* Row 2: Student Type */}
           <View style={{ flexDirection: 'row', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: 2 }}>
              <Text style={{ fontSize: 6, marginRight: 6, color: '#555', textTransform: 'uppercase' }}>Student Type:</Text>
              <Checkbox label="New" checked={data.studentType === 'New'} />
@@ -219,7 +221,8 @@ const EnrollmentPDF = ({ data }) => {
           <Text style={styles.sectionHeader}>Student Information</Text>
 
           <View style={styles.row}>
-            <Cell label="Learner Reference No. (LRN)" value={data.lrn} width="50%" />
+            {/* MODIFIED: Shows LRN only if 'With LRN' is chosen */}
+            <Cell label="Learner Reference No. (LRN)" value={displayLRN} width="50%" />
             <Cell label="PSA Birth Certificate No." value={data.psaCert} width="50%" noBorder />
           </View>
 
@@ -273,7 +276,7 @@ const EnrollmentPDF = ({ data }) => {
              <Cell label="Cellphone No. 2" value={data.contactNumber2} width="50%" noBorder />
           </View>
 
-          {/* 3. PREVIOUS SCHOOL INFORMATION (CONDITIONAL) */}
+          {/* 3. PREVIOUS SCHOOL INFORMATION */}
           {showPrevSchool && (
             <>
               <Text style={styles.sectionHeader}>Previous School Information for Kindergarten, Grade 7, Grade 11, Returnee, and Transferee</Text>
@@ -309,14 +312,14 @@ const EnrollmentPDF = ({ data }) => {
         </View>
 
         {/* CERTIFICATION */}
-	<View style={{ marginTop: 8, paddingHorizontal: 5 }}>
-	  <Text style={{ fontSize: 8.5, textAlign: 'justify', lineHeight: 1.2, color: '#333' }}>
-	    I hereby certify that the above information given are true and correct to the best of my knowledge and I allow{' '}
-	    <Text style={{ fontFamily: 'Helvetica-Bold' }}>San Ramon Catholic School, Inc.</Text>
-	    {' '}to use my child's details to create/update his/her learner profile in the Learner Information System. The information herein shall be treated as confidential.
-	  </Text>
+        <View style={{ marginTop: 8, paddingHorizontal: 5 }}>
+          <Text style={{ fontSize: 8.5, textAlign: 'justify', lineHeight: 1.2, color: '#333' }}>
+            I hereby certify that the above information given are true and correct to the best of my knowledge and I allow{' '}
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>San Ramon Catholic School, Inc.</Text>
+            {' '}to use my child's details to create/update his/her learner profile in the Learner Information System. The information herein shall be treated as confidential.
+          </Text>
 
-          {/* SIGNATORIES 1: Parent & Student */}
+          {/* SIGNATORIES 1 */}
           <View style={[styles.sigRow, { marginTop: 22 }]}>
              <View style={styles.sigBox}>
                 <Text style={styles.sigTypedName}>{parentSignatoryName}</Text>
@@ -330,7 +333,7 @@ const EnrollmentPDF = ({ data }) => {
              </View>
           </View>
 
-          {/* SIGNATORIES 2: Officials */}
+          {/* SIGNATORIES 2 */}
           <View style={[styles.sigRow, { marginTop: 22 }]}> 
              <View style={styles.sigBox}>
                 <Text style={styles.sigName}>EUSEBIO JR S. LABRADOR, LPT</Text>
@@ -342,9 +345,9 @@ const EnrollmentPDF = ({ data }) => {
              </View>
           </View>
 
-          {/* SIGNATORIES 3: Principal */}
+          {/* SIGNATORIES 3 */}
           <View style={{ alignItems: 'center', marginTop: 22 }}>
-             <Text style={{ fontSize: 7, marginBottom: 1 }}>Approved:</Text>
+             <Text style={{ fontSize: 7, marginBottom: 25 }}>Approved:</Text>
              <View style={{ width: '40%', alignItems: 'center' }}>
                  <Text style={styles.sigName}>YVONNE T. MADALAG, LPT, MA-ELM</Text>
                  <Text style={styles.sigTitle}>Principal</Text>
@@ -353,7 +356,7 @@ const EnrollmentPDF = ({ data }) => {
         </View>
 
         {/* DEPED BOX */}
-        <View style={{ border: '1px solid #000', marginTop: 30, marginBottom: 40, padding: 4 }}>
+        <View style={{ border: '1px solid #000', marginTop: 10, marginBottom: 40, padding: 4 }}>
           <Text style={{ fontSize: 7, fontFamily: 'Helvetica-BoldOblique', marginBottom: 4 }}>
              For use of DepEd Personnel Only. To be filled up by the Class Adviser
           </Text>
@@ -362,11 +365,11 @@ const EnrollmentPDF = ({ data }) => {
              <View style={{ borderBottom: '1px solid #000', width: 80, marginHorizontal: 3 }} />
              
              <Text style={{ marginBottom: 1, marginLeft: 8 }}>Grade Level: </Text>
-             <View style={{ borderBottom: '1px solid #000', width: 60, alignItems: 'center', marginHorizontal: 3 }}>
+             <View style={{ borderBottom: '1px solid #000', width: 100, alignItems: 'center', marginHorizontal: 3 }}>
                 <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, marginBottom: 1 }}>{data.gradeLevel}</Text>
              </View>
              
-             <Text style={{ marginBottom: 1, marginLeft: 8 }}>Track: </Text>
+             <Text style={{ marginBottom: 1, marginLeft: 30 }}>Track: </Text>
              <View style={{ borderBottom: '1px solid #000', width: 60, alignItems: 'center', marginHorizontal: 3 }}>
                  <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8, marginBottom: 1 }}>{data.track}</Text>
              </View>

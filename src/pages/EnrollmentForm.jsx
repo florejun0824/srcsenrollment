@@ -1,526 +1,24 @@
-// src/pages/EnrollmentForm.jsx
-import { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
 import ReCAPTCHA from "react-google-recaptcha";
 import StatusModal from '../components/StatusModal';
 
-// ==========================================
-// 0. STATIC AURORA BACKGROUND (BLUE DOMINANT)
-// ==========================================
-const AuroraBackground = memo(() => (
-    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-slate-50">
-        {/* Base Light Gradient - Shifted to cool tones */}
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-50/60 via-slate-50/60 to-emerald-50/60" />
-        
-        {/* Static Conic Aurora Effect */}
-        <div 
-            className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-[0.3]" 
-            style={{
-                mixBlendMode: 'multiply',
-                filter: 'blur(90px)', // Soften the transition between deep maroon and bright blue
-                background: `conic-gradient(from 180deg at 50% 50%, 
-                    #0ea5e9 0deg,    /* Sky Blue (Start) */
-                    #10b981 80deg,   /* Emerald (Replacing Red) */
-                    #3b82f6 140deg,  /* Royal Blue (Prominent Section) */
-                    #2563eb 200deg,  /* Deep Blue (Extending prominence) */
-                    #881337 280deg,  /* Maroon (Replacing Purple) */
-                    #0ea5e9 360deg)` /* Sky Blue (Loop back) */
-            }}
-        />
+// --- IMPORTED COMPONENTS ---
+import { AuroraBackground, Icons, RadioButton } from '../components/enrollment/SharedUI';
+import { 
+    EnrollmentSettings, 
+    StudentProfile, 
+    AddressInfo, 
+    ParentInfo, 
+    PreviousSchoolInfo, 
+    SHSDetails 
+} from '../components/enrollment/FormSections';
+import ReviewModal from '../components/enrollment/ReviewModal';
 
-        {/* Subtle Mesh Texture */}
-        <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
-    </div>
-));
-
-AuroraBackground.displayName = 'AuroraBackground';
-
-// ==========================================
-// 1. ICONS (SVG) - Static Object
-// ==========================================
-const Icons = {
-    user: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
-    home: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
-    family: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
-    school: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
-    check: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>,
-    alert: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
-    upload: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>,
-    trash: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-    eye: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
-    plus: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>,
-    arrowLeft: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
-    copy: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-};
-
-// ==========================================
-// 2. REUSABLE UI COMPONENTS (MEMOIZED)
-// ==========================================
-
-const InputGroup = memo(({ label, name, value, onChange, type = "text", required = false, placeholder = "", width = "col-span-1", disabled = false, pattern, errorMessage }) => (
-    <div className={`flex flex-col ${width} group relative`}>
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1 group-focus-within:text-red-600 transition-colors">
-            {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        <div className="relative">
-            <input
-                type={type}
-                name={name}
-                value={value}
-                onChange={onChange}
-                required={required && !disabled}
-                disabled={disabled}
-                placeholder={placeholder}
-                pattern={pattern}
-                className={`w-full bg-white/60 backdrop-blur-sm border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl px-4 py-3.5
-                focus:bg-white focus:ring-4 focus:ring-red-500/10 focus:border-red-500 focus:shadow-lg focus:shadow-red-500/5
-                hover:border-slate-300 transition-all duration-200 outline-none shadow-sm
-                placeholder:text-slate-400 placeholder:text-[11px] placeholder:uppercase placeholder:font-bold placeholder:tracking-wide
-                invalid:border-red-300 invalid:text-red-600
-                disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100`}
-            />
-        </div>
-        {errorMessage && (
-            <span className="hidden peer-invalid:block text-[10px] text-red-500 mt-1 ml-1 font-medium">{errorMessage}</span>
-        )}
-    </div>
-));
-InputGroup.displayName = 'InputGroup';
-
-const RadioButton = memo(({ name, value, label, checked, onChange }) => (
-    <label className={`relative flex items-center justify-center p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 flex-1 active:scale-95 select-none
-        ${checked 
-            ? 'border-red-500 bg-red-50 text-red-700 shadow-md shadow-red-100' 
-            : 'border-slate-100 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50' 
-        }`}>
-        <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
-        <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
-        {checked && (
-            <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-        )}
-    </label>
-));
-RadioButton.displayName = 'RadioButton';
-
-const SectionHeader = memo(({ title, icon }) => (
-    <div className="flex items-center gap-4 mb-6 pt-8 border-t border-slate-100 first:border-0 first:pt-0">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-[#800000] flex items-center justify-center text-white shadow-lg shadow-red-200/50 border border-white/20">
-            {icon}
-        </div>
-        <div className="flex flex-col">
-            <h3 className="text-base font-black text-slate-800 uppercase tracking-tight leading-none">{title}</h3>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Required Information</span>
-        </div>
-    </div>
-));
-SectionHeader.displayName = 'SectionHeader';
-
-const FileUploadGroup = memo(({ label, onUploadComplete, onRemove, required = false, existingUrl, setModal }) => {
-    const [uploading, setUploading] = useState(false);
-    const [preview, setPreview] = useState(existingUrl || null);
-
-    useEffect(() => {
-        setPreview(existingUrl);
-    }, [existingUrl]);
-
-    const handleFileChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        if (file.size > 5 * 1024 * 1024) {
-            setModal({
-                isOpen: true,
-                type: 'error',
-                title: 'File Too Large',
-                message: 'Please upload a file smaller than 5MB.'
-            });
-            return;
-        }
-
-        setUploading(true);
-        const formData = new FormData();
-        formData.append("file", file);
-        
-        const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-        const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-
-        if (!uploadPreset || !cloudName) {
-            console.error("Missing Cloudinary configuration in .env file");
-            setModal({
-                isOpen: true,
-                type: 'error',
-                title: 'Configuration Error',
-                message: 'System configuration error. Please contact admin.'
-            });
-            setUploading(false);
-            return;
-        }
-
-        formData.append("upload_preset", uploadPreset);
-
-        try {
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-                method: "POST",
-                body: formData,
-            });
-            const data = await res.json();
-            
-            if (data.secure_url) {
-                setPreview(data.secure_url);
-                onUploadComplete(data.secure_url);
-            } else {
-                console.error("Upload Error:", data);
-                setModal({
-                    isOpen: true,
-                    type: 'error',
-                    title: 'Upload Failed',
-                    message: 'Upload failed. Please check your internet connection or try again later.'
-                });
-            }
-        } catch (err) {
-            console.error("Error uploading:", err);
-            setModal({
-                isOpen: true,
-                type: 'error',
-                title: 'Upload Error',
-                message: 'An unexpected error occurred while uploading.'
-            });
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const handleRemove = (e) => {
-        e.preventDefault();
-        setPreview(null);
-        onRemove(); 
-    };
-
-    return (
-        <div className="flex flex-col md:col-span-2 group">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                {label} {required && <span className="text-red-500">*</span>}
-            </label>
-            <div className={`relative flex items-center gap-4 p-4 rounded-xl border border-dashed transition-all duration-300
-                ${preview ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-300 bg-slate-50/50 hover:bg-white hover:border-red-300 hover:shadow-sm'}`}>
-                
-                {!preview ? (
-                    <label className={`flex-1 flex flex-col md:flex-row items-center justify-center gap-3 py-4 cursor-pointer transition-all
-                        ${uploading ? 'opacity-50 cursor-wait' : ''}`}>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors 
-                            ${uploading ? 'bg-slate-200' : 'bg-white border border-slate-200 text-red-500 shadow-sm group-hover:scale-110 transition-transform'}`}>
-                            {uploading ? (
-                                <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"/>
-                            ) : (
-                                Icons.upload
-                            )}
-                        </div>
-                        <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide group-hover:text-red-600 transition-colors">
-                                {uploading ? 'Uploading...' : 'Click to Upload File'}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium">Max 5MB (Image/PDF)</span>
-                        </div>
-                        <input type="file" accept="image/*,.pdf" onChange={handleFileChange} disabled={uploading} className="hidden" />
-                    </label>
-                ) : (
-                    <div className="flex-1 flex items-center justify-between min-w-0">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-200">
-                                {Icons.check}
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-bold text-emerald-700 truncate">File Attached</span>
-                                <a href={preview} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-emerald-600 hover:underline transition-colors mt-0.5">
-                                    {Icons.eye} View
-                                </a>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={handleRemove} 
-                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-red-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all shadow-sm"
-                            title="Remove File"
-                        >
-                            {Icons.trash}
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-});
-FileUploadGroup.displayName = 'FileUploadGroup';
-
-// ==========================================
-// 3. FORM SECTIONS (MEMOIZED)
-// ==========================================
-
-const EnrollmentSettings = memo(({ data, handleChange, schoolYearOptions, ageRule, ageError }) => (
-    <div className="mb-8">
-        <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-8">Enrollment Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="col-span-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">School Year</label>
-                <div className="relative group">
-                    <select name="schoolYear" value={data.schoolYear} onChange={handleChange} className="w-full font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none appearance-none cursor-pointer transition-all shadow-sm hover:border-slate-300">
-                        {schoolYearOptions.map(year => <option key={year} value={year}>{year}</option>)}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400 text-xs">▼</div>
-                </div>
-            </div>
-
-            <div className="col-span-1 lg:col-span-1">
-                <label className="text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-1.5 block">Grade Level</label>
-                <div className="relative group">
-                    <select name="gradeLevel" value={data.gradeLevel} onChange={handleChange} required className="w-full font-bold text-slate-700 bg-amber-50/50 border border-amber-200 rounded-xl px-4 py-3.5 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none appearance-none shadow-sm cursor-pointer transition-all">
-                        <option value="">-- Select Level --</option>
-                        <option value="Pre-Kindergarten 1">Pre-Kindergarten 1</option>
-                        <option value="Pre-Kindergarten 2">Pre-Kindergarten 2</option>
-                        <option value="Kinder">Kinder</option>
-                        {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'].map(g => (<option key={g} value={g}>{g}</option>))}
-                        <option value="Grade 11 (SHS)">Grade 11 (SHS)</option>
-                        <option value="Grade 12 (SHS)">Grade 12 (SHS)</option>
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-amber-600 text-xs">▼</div>
-                </div>
-                {ageRule && !ageError && <div className="mt-2 text-[10px] text-amber-700 font-bold bg-amber-50 p-2 rounded-lg border border-amber-100 flex items-center gap-2"><span>💡</span> {ageRule}</div>}
-                {ageError && <div className="mt-2 text-[10px] text-red-600 font-bold bg-red-50 p-2 rounded-lg border border-red-100 flex items-center gap-2 animate-pulse"><span>🚫</span> Requirement not met</div>}
-            </div>
-
-            <div className="col-span-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">Student Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                    {['New', 'Old', 'Transferee', 'Returning'].map((type) => (
-                        <RadioButton key={type} name="studentType" value={type} label={type} checked={data.studentType === type} onChange={handleChange} />
-                    ))}
-                </div>
-            </div>
-
-            <div className="col-span-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">LRN Status</label>
-                <div className="flex gap-2 bg-slate-100/80 p-1 rounded-xl border border-slate-200 h-[50px] items-center">
-                    {['With LRN', 'No LRN'].map((status) => (
-                        <label key={status} className={`flex-1 h-full flex items-center justify-center cursor-pointer text-center text-[10px] font-bold uppercase rounded-lg transition-all 
-                            ${data.lrnStatus === status 
-                                ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
-                                : 'text-slate-400 hover:text-slate-600'}`}>
-                            <input type="radio" name="lrnStatus" value={status} checked={data.lrnStatus === status} onChange={handleChange} className="hidden" />
-                            {status}
-                        </label>
-                    ))}
-                </div>
-            </div>
-        </div>
-    </div>
-));
-EnrollmentSettings.displayName = 'EnrollmentSettings';
-
-const StudentProfile = memo(({ data, handleChange, onPhotoUpload, onPhotoRemove, onPsaUpload, onPsaRemove, setModal }) => {
-    const [showPage2, setShowPage2] = useState(false);
-
-    return (
-        <div className="mb-10">
-            <SectionHeader title="Student Profile" icon={Icons.user} />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                
-                {/* --- DOCUMENTS UPLOAD SECTION --- */}
-                <div className="md:col-span-4 bg-slate-50 rounded-2xl p-6 border border-slate-200 mb-4 shadow-sm">
-                    <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                        {Icons.upload} Documents (Optional)
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FileUploadGroup 
-                            label="Student 2x2 ID Photo" 
-                            onUploadComplete={onPhotoUpload} 
-                            onRemove={onPhotoRemove}
-                            required={false} 
-                            existingUrl={data.studentPhotoUrl}
-                            setModal={setModal}
-                        />
-                        
-                        <div className="flex flex-col gap-4 md:col-span-2 lg:col-span-1">
-                            <FileUploadGroup 
-                                label="Scanned PSA Birth Certificate (Page 1)" 
-                                onUploadComplete={(url) => onPsaUpload(url, 1)} 
-                                onRemove={() => onPsaRemove(1)}
-                                existingUrl={data.psaScanUrl} 
-                                setModal={setModal}
-                            />
-
-                            {data.psaScanUrl2 || showPage2 ? (
-                                <div className="animate-fade-in-down">
-                                    <FileUploadGroup 
-                                        label="Scanned PSA Birth Certificate (Page 2)" 
-                                        onUploadComplete={(url) => onPsaUpload(url, 2)} 
-                                        onRemove={() => { onPsaRemove(2); setShowPage2(false); }}
-                                        existingUrl={data.psaScanUrl2} 
-                                        setModal={setModal}
-                                    />
-                                </div>
-                            ) : (
-                                <div>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setShowPage2(true)}
-                                        className="text-[10px] font-bold text-slate-500 flex items-center gap-2 hover:text-red-600 transition-all bg-white px-4 py-2.5 rounded-lg border border-dashed border-slate-300 hover:border-red-400 shadow-sm w-full justify-center"
-                                    >
-                                        {Icons.plus} Add Page 2 (Back Page)
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <InputGroup label="PSA Birth Certificate No." name="psaCert" value={data.psaCert} onChange={handleChange} width="md:col-span-2" />
-                <InputGroup label="Learner Reference No. (LRN)" name="lrn" value={data.lrn} onChange={handleChange} width="md:col-span-2" placeholder="12-digit number" />
-                
-                <InputGroup label="Last Name" name="lastName" value={data.lastName} onChange={handleChange} required width="md:col-span-1" />
-                <InputGroup label="First Name" name="firstName" value={data.firstName} onChange={handleChange} required width="md:col-span-1" />
-                <InputGroup label="Middle Name" name="middleName" value={data.middleName} onChange={handleChange} width="md:col-span-1" />
-                <InputGroup label="Extension (Jr/II)" name="extension" value={data.extension} onChange={handleChange} width="md:col-span-1" />
-                
-                <InputGroup label="Date of Birth" name="dob" type="date" value={data.dob} onChange={handleChange} required width="md:col-span-1" />
-                
-                <div className="md:col-span-1">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1 block">Sex</label>
-                    <div className="flex gap-3">
-                        <RadioButton name="sex" value="Male" label="Male" checked={data.sex === 'Male'} onChange={handleChange} />
-                        <RadioButton name="sex" value="Female" label="Female" checked={data.sex === 'Female'} onChange={handleChange} />
-                    </div>
-                </div>
-                
-                <InputGroup label="Age" name="age" type="number" value={data.age} onChange={handleChange} width="md:col-span-1" />
-                <InputGroup label="Mother Tongue" name="motherTongue" value={data.motherTongue} onChange={handleChange} width="md:col-span-1" />
-                
-                <div className="md:col-span-4 bg-slate-50 rounded-2xl p-5 border border-slate-200 flex flex-col md:flex-row md:items-center gap-6 shadow-sm">
-                    <div className="flex-shrink-0">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Belong to Indigenous People (IP)?</span>
-                    </div>
-                    <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer group select-none">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${!data.isIP ? 'border-red-500 bg-white' : 'border-slate-300 bg-white'}`}>
-                                {!data.isIP && <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />}
-                            </div>
-                            <input type="radio" name="isIP" value="false" checked={!data.isIP} onChange={handleChange} className="hidden" />
-                            <span className="text-xs font-bold uppercase text-slate-700">No</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer group select-none">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${data.isIP ? 'border-red-500 bg-white' : 'border-slate-300 bg-white'}`}>
-                                {data.isIP && <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />}
-                            </div>
-                            <input type="radio" name="isIP" value="true" checked={data.isIP} onChange={handleChange} className="hidden" />
-                            <span className="text-xs font-bold uppercase text-slate-700">Yes</span>
-                        </label>
-                    </div>
-                    {data.isIP && (
-                        <input 
-                            type="text" 
-                            placeholder="SPECIFY COMMUNITY" 
-                            value={data.ipCommunity} 
-                            onChange={(e) => handleChange({ target: { name: 'ipCommunity', value: e.target.value }})}
-                            className="flex-1 bg-transparent border-b-2 border-slate-300 focus:border-red-500 outline-none px-2 py-1 text-sm font-bold text-red-600 uppercase placeholder:text-slate-400 animate-fade-in" 
-                        />
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-});
-StudentProfile.displayName = 'StudentProfile';
-
-const AddressInfo = memo(({ data, handleChange }) => (
-    <div className="mb-10">
-        <SectionHeader title="Home Address" icon={Icons.home} />
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
-            <InputGroup label="House # / Street / Sitio" name="addressStreet" value={data.addressStreet} onChange={handleChange} width="md:col-span-2" />
-            <InputGroup label="Barangay" name="addressBarangay" value={data.addressBarangay} onChange={handleChange} width="md:col-span-2" />
-            <InputGroup label="City / Municipality" name="addressCity" value={data.addressCity} onChange={handleChange} width="md:col-span-2" />
-            <InputGroup label="Province" name="addressProvince" value={data.addressProvince} onChange={handleChange} width="md:col-span-3" />
-            <InputGroup label="Zip Code" name="addressZip" value={data.addressZip} onChange={handleChange} type="number" width="md:col-span-3" />
-        </div>
-    </div>
-));
-AddressInfo.displayName = 'AddressInfo';
-
-const ParentInfo = memo(({ data, handleChange }) => (
-    <div className="mb-10">
-        <SectionHeader title="Parent / Guardian" icon={Icons.family} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <InputGroup label="Father's Full Name" name="fatherName" value={data.fatherName} onChange={handleChange} placeholder="LAST, FIRST, MIDDLE" required />
-            <InputGroup label="Mother's Maiden Name" name="motherName" value={data.motherName} onChange={handleChange} placeholder="LAST, FIRST, MIDDLE" required />
-            <InputGroup label="Guardian's Name" name="guardianName" value={data.guardianName} onChange={handleChange} placeholder="IF APPLICABLE" />
-            
-            <div className="grid grid-cols-2 gap-4">
-                <InputGroup 
-                    label="Mobile No. 1" 
-                    name="contactNumber1" 
-                    value={data.contactNumber1} 
-                    onChange={handleChange} 
-                    type="tel" 
-                    required 
-                    placeholder="09XXXXXXXXX"
-                    pattern="^09\d{9}$" 
-                />
-                <InputGroup label="Mobile No. 2" name="contactNumber2" value={data.contactNumber2} onChange={handleChange} type="tel" placeholder="Optional" />
-            </div>
-        </div>
-    </div>
-));
-ParentInfo.displayName = 'ParentInfo';
-
-const PreviousSchoolInfo = memo(({ data, handleChange, show }) => {
-    if (!show) return null;
-    return (
-        <div className="bg-blue-50 rounded-2xl p-6 md:p-8 border border-blue-100 mb-10 animate-fade-in-up shadow-sm">
-            <SectionHeader title="Previous School" icon={Icons.school} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-                <InputGroup label="Last School Attended" name="lastSchoolName" value={data.lastSchoolName} onChange={handleChange} required />
-                <InputGroup label="School Address" name="lastSchoolAddress" value={data.lastSchoolAddress} onChange={handleChange} required />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-6 border-t border-blue-200/50">
-                <InputGroup label="Last Grade Level" name="lastGradeLevel" value={data.lastGradeLevel} onChange={handleChange} />
-                <InputGroup label="Last School Year" name="lastSchoolYear" value={data.lastSchoolYear} onChange={handleChange} />
-                <InputGroup label="School ID (If Known)" name="lastSchoolID" value={data.lastSchoolID || ''} onChange={handleChange} />
-            </div>
-        </div>
-    );
-});
-PreviousSchoolInfo.displayName = 'PreviousSchoolInfo';
-
-const SHSDetails = memo(({ data, handleChange, isTrackDisabled, showStrand }) => {
-    if (!data.gradeLevel.includes('SHS')) return null;
-    return (
-        <div className="bg-amber-50 rounded-2xl p-6 md:p-8 border border-amber-200 relative overflow-hidden mb-8 animate-fade-in shadow-md shadow-amber-100/50">
-             <div className="absolute top-0 right-0 text-amber-500/10 text-[10rem] font-black -mt-8 -mr-8 select-none pointer-events-none">SHS</div>
-             <div className="relative z-10">
-                <h3 className="text-xl font-black text-amber-600 uppercase tracking-tight mb-8 flex items-center gap-3">
-                    <span className="text-3xl">🎓</span> Senior High School Track
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div>
-                        <label className="text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-3 block">Semester</label>
-                        <div className="flex gap-3">
-                            <RadioButton name="semester" value="1ST SEMESTER" label="1st Sem" checked={data.semester === '1ST SEMESTER'} onChange={handleChange} />
-                            <RadioButton name="semester" value="2ND SEMESTER" label="2nd Sem" checked={data.semester === '2ND SEMESTER'} onChange={handleChange} />
-                        </div>
-                    </div>
-                    <div className="space-y-6">
-                        <InputGroup label="Track" name="track" value={data.track} onChange={handleChange} placeholder="E.G. ACADEMIC" disabled={isTrackDisabled} />
-                        {showStrand && (<div className="animate-fade-in-down"><InputGroup label="Strand" name="strand" value={data.strand} onChange={handleChange} placeholder="E.G. STEM / ABM" /></div>)}
-                    </div>
-                </div>
-             </div>
-        </div>
-    );
-});
-SHSDetails.displayName = 'SHSDetails';
-
-// ==========================================
-// 4. HELPERS
-// ==========================================
+// --- NEW IMPORT: FEE UTILS ---
+import { calculateTotalFees } from '../utils/FeeConstants';
 
 // Helper to generate a Reference Number (e.g. SRCS-2025-A7B3)
 const generateReferenceNumber = () => {
@@ -533,9 +31,6 @@ const generateReferenceNumber = () => {
     return `SRCS-${year}-${randomStr}`;
 };
 
-// ==========================================
-// 5. MAIN PAGE LOGIC
-// ==========================================
 const EnrollmentForm = () => {
     const [loading, setLoading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -543,10 +38,10 @@ const EnrollmentForm = () => {
     const [existingId, setExistingId] = useState(null);
     const [captchaToken, setCaptchaToken] = useState(null);
     
-    // NEW: State for Status Modal
+    // Status Modal State
     const [modalState, setModalState] = useState({
         isOpen: false,
-        type: 'info', // 'success', 'error', 'warning', 'info'
+        type: 'info',
         title: '',
         message: ''
     });
@@ -559,13 +54,13 @@ const EnrollmentForm = () => {
         setModalState({ isOpen: true, type, title, message });
     };
 
-    // NEW: State for the generated Reference Number
+    // Reference Number State
     const [referenceNumber, setReferenceNumber] = useState(null);
 
     // Config
     const currentYear = new Date().getFullYear();
     
-    // MEMOIZED: Prevent array recreation on every render
+    // School Year Options
     const schoolYearOptions = useMemo(() => Array.from({ length: 10 }, (_, i) => {
         const start = currentYear + i; 
         return `${start}-${start + 1}`;
@@ -630,7 +125,7 @@ const EnrollmentForm = () => {
     const targetGradesForPrevSchool = ['Pre-Kindergarten 1', 'Pre-Kindergarten 2', 'Kinder', 'Grade 7', 'Grade 11 (SHS)'];
     const showPrevSchool = targetGradesForPrevSchool.includes(data.gradeLevel) || data.studentType === 'Transferee' || data.studentType === 'Returning';
 
-    // MEMOIZED: Stabilize function identity so child components don't re-render
+    // MEMOIZED HANDLERS
     const handleChange = useCallback((e) => {
         const { name, value, type, checked } = e.target;
         
@@ -658,7 +153,6 @@ const EnrollmentForm = () => {
         }
     }, []); 
 
-    // MEMOIZED: File handlers
     const handlePhotoUpload = useCallback((url) => setData(prev => ({ ...prev, studentPhotoUrl: url })), []);
     const handlePhotoRemove = useCallback(() => setData(prev => ({ ...prev, studentPhotoUrl: '' })), []);
 
@@ -714,16 +208,38 @@ const EnrollmentForm = () => {
         try {
             const { website_url, ...submissionData } = data;
 
-            // Generate Reference Number
             let finalRefNumber = referenceNumber;
             if (!existingId) {
                 finalRefNumber = generateReferenceNumber();
             }
 
+            // --- FEE CALCULATION (FULL TUITION) ---
+            const feeDetails = calculateTotalFees(data.gradeLevel);
+            let initialSOA = null;
+
+            if (feeDetails) {
+                // We default to 'None' for subsidy. Admin applies it later.
+                const totalAssessment = feeDetails.totalAssessment;
+                
+                initialSOA = {
+                    feeBreakdown: feeDetails,
+                    totalAssessment: totalAssessment,
+                    subsidyType: 'None', 
+                    subsidyAmount: 0,
+                    discount: 0,
+                    balance: totalAssessment, // Full balance initially
+                    payments: [],
+                    paymentStatus: 'Unpaid',
+                    lastUpdated: new Date()
+                };
+            }
+            // ----------------------------------
+
             const payload = {
                 ...submissionData,
-                referenceNumber: finalRefNumber, // Save to DB
-                updatedAt: new Date()
+                referenceNumber: finalRefNumber, 
+                updatedAt: new Date(),
+                soa: initialSOA // Save SOA to Firestore
             };
 
             if (existingId) {
@@ -739,7 +255,6 @@ const EnrollmentForm = () => {
                         .replace(/\s+/g, '-');
                 };
 
-				// LAST NAME - FIRST NAME - DOB - SCHOOL YEAR
 				const uniqueId = `${cleanStr(data.lastName)}-${cleanStr(data.firstName)}-${data.dob}-${data.schoolYear}`;
                 
                 await setDoc(doc(db, "enrollments", uniqueId), { 
@@ -755,10 +270,7 @@ const EnrollmentForm = () => {
             window.scrollTo(0, 0);
         } catch (error) {
             console.error("Submission Error:", error);
-            
-            // CUSTOM ERROR HANDLING VIA MODAL
             if (error.code === 'permission-denied' || error.message.includes('permission-denied')) {
-                // Close review modal first
                 setShowReview(false);
                 triggerModal(
                     'warning', 
@@ -788,7 +300,6 @@ const EnrollmentForm = () => {
                     </div>
                     <h2 className="text-2xl font-black text-slate-900 mb-2">{existingId ? 'Updated Successfully!' : 'Pre-Enrolled Successfully!'}</h2>
                     
-                    {/* --- REFERENCE NUMBER CARD --- */}
                     {referenceNumber && (
                         <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl mb-8 relative overflow-hidden group shadow-sm mt-6 text-left">
                             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
@@ -837,7 +348,6 @@ const EnrollmentForm = () => {
                         Back to Home
                     </Link>
                 </div>
-                {/* Modals can exist here too if needed, but submitted state usually doesn't trigger errors */}
                 <StatusModal 
                     isOpen={modalState.isOpen}
                     type={modalState.type}
@@ -870,7 +380,6 @@ const EnrollmentForm = () => {
                 />
             )}
 
-            {/* STATIC AURORA BACKGROUND */}
             <AuroraBackground />
 
             {/* HEADER */}
@@ -923,7 +432,7 @@ const EnrollmentForm = () => {
                         onPhotoRemove={handlePhotoRemove}
                         onPsaUpload={handlePsaUpload}
                         onPsaRemove={handlePsaRemove}
-                        setModal={setModalState} // Pass modal trigger to subcomponent
+                        setModal={setModalState}
                     />
 
                     <AddressInfo 
@@ -1005,97 +514,6 @@ const EnrollmentForm = () => {
                         </p>
                     </div>
                 </form>
-            </div>
-        </div>
-    );
-};
-
-const ReviewModal = ({ data, onCancel, onConfirm, loading, isUpdateMode }) => {
-    const DataRow = ({ label, value }) => (
-        <div className="flex flex-col sm:flex-row sm:justify-between border-b border-slate-100 py-3 last:border-0 hover:bg-slate-50 px-3 rounded-lg transition-colors">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 sm:mb-0">{label}</span>
-            <span className="text-sm font-bold text-slate-900 text-right break-words">{value || <span className="text-slate-400 font-normal italic">N/A</span>}</span>
-        </div>
-    );
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
-            <div className="bg-white rounded-[2rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-white overflow-hidden">
-                {/* Modal Header */}
-                <div className="p-6 bg-white border-b border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#800000] to-red-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-red-100">
-                            {isUpdateMode ? '🔄' : '📋'}
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{isUpdateMode ? 'Update Record' : 'Confirm Enrollment'}</h2>
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Verify Details</p>
-                        </div>
-                    </div>
-                    <button onClick={onCancel} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-red-500 transition-colors">✕</button>
-                </div>
-
-                {/* Content */}
-                <div className="p-8 overflow-y-auto space-y-8 custom-scrollbar bg-slate-50/50">
-                    <div className="space-y-6">
-                        {/* WARNING NOTICE */}
-                        <div className="bg-amber-50 border border-amber-200 p-5 rounded-xl flex items-start gap-4 shadow-sm">
-                            <span className="text-2xl">⚠️</span>
-                            <div>
-                                <h4 className="text-amber-700 font-black text-xs uppercase mb-1">Final Review Required</h4>
-                                <p className="text-amber-700/80 text-[11px] leading-relaxed font-medium">
-                                    Please double-check all information below. 
-                                    <strong className="text-amber-800"> Once submitted, you cannot edit these details </strong> 
-                                    unless you visit the Registrar's Office.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                            <h4 className="text-red-500 font-bold uppercase text-[10px] tracking-widest mb-4 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-red-500"></span> Enrollment Details
-                            </h4>
-                            <DataRow label="SY / Grade" value={`${data.schoolYear} - ${data.gradeLevel}`} />
-                            <DataRow label="Type / Status" value={`${data.studentType} (${data.lrnStatus})`} />
-                        </div>
-
-                        <div>
-                            <h4 className="text-slate-800 font-bold uppercase text-[10px] tracking-widest mb-4 border-b border-slate-200 pb-2">Student Profile</h4>
-                            <div className="flex justify-center mb-6">
-                                {data.studentPhotoUrl ? (
-                                    <img src={data.studentPhotoUrl} alt="Student" className="w-24 h-24 object-cover rounded-full border-4 border-white shadow-xl" />
-                                ) : (
-                                    <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-xs text-slate-400 border-4 border-white shadow-inner">No Photo</div>
-                                )}
-                            </div>
-                            <DataRow label="Full Name" value={`${data.lastName}, ${data.firstName} ${data.middleName} ${data.extension}`} />
-                            <DataRow label="LRN" value={data.lrn} />
-                            <DataRow label="PSA Cert" value={data.psaCert} />
-                            <DataRow label="Birth Details" value={`${data.dob} (${data.age} yrs) - ${data.sex}`} />
-                            <DataRow label="Address" value={`${data.addressBarangay}, ${data.addressCity}`} />
-                        </div>
-
-                        <div>
-                            <h4 className="text-slate-800 font-bold uppercase text-[10px] tracking-widest mb-4 border-b border-slate-200 pb-2">Contacts</h4>
-                            <DataRow label="Parents" value={`F: ${data.fatherName} / M: ${data.motherName}`} />
-                            <DataRow label="Contact Number" value={data.contactNumber1} />
-                        </div>
-                    </div>
-
-                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-xs text-red-600 text-center leading-relaxed font-bold">
-                        By clicking confirm, I hereby certify that the above information is true and correct.
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="p-6 border-t border-slate-100 bg-white flex gap-4">
-                    <button onClick={onCancel} className="flex-1 py-4 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-sm">
-                        Back to Edit
-                    </button>
-                    <button onClick={onConfirm} disabled={loading} className="flex-1 py-4 rounded-xl font-bold text-white bg-gradient-to-r from-[#800000] to-red-600 hover:to-red-500 shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 active:scale-95">
-                        {loading ? <span className="animate-pulse">Processing...</span> : (isUpdateMode ? 'Update Now' : 'Submit Enrollment')}
-                    </button>
-                </div>
             </div>
         </div>
     );
