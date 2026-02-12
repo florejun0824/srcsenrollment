@@ -175,16 +175,25 @@ const FinanceModal = ({ student, onClose, onUpdate }) => {
                                     </div>
                                     <Receipt className="absolute -bottom-2 -right-2 w-12 h-12 text-blue-100 -rotate-12" />
                                 </div>
-                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Payment Mode</label>
-                                    <select 
-                                        value={paymentMode}
-                                        onChange={e => setPaymentMode(e.target.value)}
-                                        className="w-full bg-transparent font-bold text-slate-700 outline-none text-sm cursor-pointer"
-                                    >
-                                        {PAYMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                                    </select>
-                                </div>
+					<div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+					    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Payment Mode</label>
+					    <select 
+					        value={paymentMode}
+					        onChange={e => setPaymentMode(e.target.value)}
+					        className="w-full bg-transparent font-bold text-slate-700 outline-none text-sm cursor-pointer"
+					    >
+					        {PAYMENT_MODES.map(m => (
+					            <option 
+					                key={m.value} 
+					                value={m.value}
+					                disabled={m.value === 'Gcash' || m.value === 'Bank Transfer'} //
+					                className={m.value === 'Gcash' || m.value === 'Bank Transfer' ? 'text-slate-300' : ''}
+					            >
+					                {m.label} { (m.value === 'Gcash' || m.value === 'Bank Transfer') ? '(Disabled)' : '' }
+					            </option>
+					        ))}
+					    </select>
+					</div>
                             </div>
 
                             {/* ALLOCATION TABLE */}

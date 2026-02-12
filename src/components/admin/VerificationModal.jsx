@@ -4,7 +4,7 @@ import { db } from '../../firebase';
 import { Icons } from '../../utils/Icons';
 import { pdf } from '@react-pdf/renderer';
 import EnrollmentPDF from '../EnrollmentPDF';
-import { SUBSIDIES } from '../../utils/FeeConstants';
+import { useFees } from '../../context/FeeContext'; // INTEGRATION: Import Fee Context
 
 // --- ICONS & ASSETS ---
 const ModalIcons = {
@@ -63,6 +63,7 @@ const StatusBadge = ({ status }) => {
 
 // --- MAIN MODAL COMPONENT ---
 const VerificationModal = ({ student, sections, onClose, onApprove, onReject, onTransfer, onPromote, onUpdateList }) => {
+    const { subsidies, calculateFees } = useFees(); // INTEGRATION: Get dynamic data
     const [localStudent, setLocalStudent] = useState(student);
     const [formData, setFormData] = useState(student);
     const [assignedSection, setAssignedSection] = useState(student.section || '');
@@ -87,9 +88,8 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
 
     // Derived State
     const validSections = useMemo(() => sections.filter(sec => sec.gradeLevel === localStudent.gradeLevel), [sections, localStudent.gradeLevel]);
-    const isJHS = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'].includes(localStudent.gradeLevel);
-    const isSHS = ['Grade 11 (SHS)', 'Grade 12 (SHS)'].includes(localStudent.gradeLevel);
-    const showSubsidy = isJHS || isSHS;
+    // INTEGRATION: Simply check if subsidies exist to show the dropdown, or keep JHS/SHS check if preferred
+    const showSubsidy = true; 
 
     // --- HANDLERS ---
     const handleInputChange = useCallback((e) => {
@@ -127,11 +127,20 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
 
     const handleApproveClick = async () => {
         const finalSection = assignedSection || 'Unassigned'; 
-        const subsidyAmount = SUBSIDIES[selectedVoucher] || 0;
-        const currentSOA = localStudent.soa || { totalAssessment: 0, balance: 0, payments: [] };
+        
+        // INTEGRATION: 1. Calculate Standard Fees Dynamicallly
+        const feeDetails = calculateFees(localStudent.gradeLevel);
+        const standardAssessment = feeDetails ? feeDetails.totalAssessment : 0;
+        
+        // INTEGRATION: 2. Get Subsidy Amount from Dynamic Context
+        const subsidyAmount = subsidies[selectedVoucher] || 0;
+
+        // 3. Handle Existing Payments
+        const currentSOA = localStudent.soa || {};
         const totalPaid = (currentSOA.payments || []).reduce((acc, curr) => acc + curr.amount, 0);
-        const baseFee = currentSOA.totalAssessment || 0; 
-        const newBalance = baseFee - subsidyAmount - totalPaid;
+        
+        // 4. Calculate Net Balance
+        const newBalance = standardAssessment - subsidyAmount - totalPaid;
 
         const updateData = {
             status: 'Enrolled',
@@ -139,10 +148,15 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
             section: finalSection,
             voucherType: selectedVoucher, 
             enrolledAt: new Date(),
-            "soa.subsidyType": selectedVoucher,
-            "soa.subsidyAmount": subsidyAmount,
-            "soa.balance": newBalance,
-            "soa.paymentStatus": newBalance <= 0 ? 'Fully Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid')
+            soa: {
+                ...currentSOA,
+                totalAssessment: standardAssessment, // Use calculated assessment
+                subsidyType: selectedVoucher,
+                subsidyAmount: subsidyAmount,
+                balance: newBalance,
+                paymentStatus: newBalance <= 0 ? 'Fully Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid'),
+                feeBreakdown: feeDetails // Snapshot of fees at enrollment
+            }
         };
 
         try {
@@ -258,7 +272,7 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
                                         </select>
                                     </div>
 
-                                    {/* 3. Subsidy (Conditional) */}
+                                    {/* 3. Subsidy (Dynamic) */}
                                     {showSubsidy && (
                                         <div className="space-y-1 flex-1 min-w-0">
                                             <label className="text-[9px] font-bold text-emerald-600 uppercase truncate block">Grant</label>
@@ -268,9 +282,10 @@ const VerificationModal = ({ student, sections, onClose, onApprove, onReject, on
                                                 className="w-full bg-emerald-50 border border-emerald-200 rounded-lg px-1 py-2 text-xs font-bold text-emerald-800 outline-none focus:border-emerald-500 transition-all"
                                             >
                                                 <option value="None">None</option>
-                                                {isJHS && <option value="ESC Grantee">ESC</option>}
-                                                {isSHS && <option value="SHS Voucher (Public)">Pub</option>}
-                                                {isSHS && <option value="SHS Voucher (Private)">Priv</option>}
+                                                {/* INTEGRATION: Map through dynamic subsidies */}
+                                                {subsidies && Object.keys(subsidies).map(key => (
+                                                    <option key={key} value={key}>{key}</option>
+                                                ))}
                                             </select>
                                         </div>
                                     )}

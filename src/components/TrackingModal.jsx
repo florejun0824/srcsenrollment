@@ -5,7 +5,8 @@ import { pdf } from '@react-pdf/renderer';
 import EnrollmentPDF from './EnrollmentPDF'; 
 import { 
     X, Search, Loader2, CheckCircle, Clock, Download, 
-    Receipt, Calculator, AlertCircle, Lock 
+    Receipt, Calculator, AlertCircle, Lock,
+    Smartphone, Landmark, Banknote
 } from 'lucide-react';
 
 const TrackingModal = ({ isOpen, onClose }) => {
@@ -83,14 +84,25 @@ const TrackingModal = ({ isOpen, onClose }) => {
         }
     };
 
-    const renderFeeList = (feesObj) => {
+    // Helper to render lists (Standard Fees, etc.)
+    const renderFeeList = (feesObj, isDeduction = false) => {
         if (!feesObj) return null;
         return Object.entries(feesObj).map(([key, value]) => (
             <div key={key} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0 border-dashed">
-                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide truncate pr-2">{key}</span>
-                <span className="text-xs font-bold text-slate-700 whitespace-nowrap">{formatCurrency(value)}</span>
+                <span className={`text-[10px] font-medium uppercase tracking-wide truncate pr-2 ${isDeduction ? 'text-emerald-600' : 'text-slate-500'}`}>{key}</span>
+                <span className={`text-xs font-bold whitespace-nowrap ${isDeduction ? 'text-emerald-600' : 'text-slate-700'}`}>
+                    {isDeduction ? '-' : ''}{formatCurrency(value)}
+                </span>
             </div>
         ));
+    };
+
+    // Helper to get Icon based on payment mode
+    const getPaymentIcon = (mode) => {
+        const m = mode?.toLowerCase() || '';
+        if (m.includes('gcash')) return <Smartphone size={16} />;
+        if (m.includes('bank')) return <Landmark size={16} />;
+        return <Banknote size={16} />; // Default to Cash
     };
 
     return (
@@ -239,10 +251,15 @@ const TrackingModal = ({ isOpen, onClose }) => {
                                                 <div className="p-5 md:p-6 bg-gradient-to-br from-slate-900 to-slate-800">
                                                     
                                                     {(() => {
-                                                        const isGrantee = resultData.soa.subsidyAmount > 0;
-                                                        const netAssessment = isGrantee 
-                                                            ? resultData.soa.totalAssessment - resultData.soa.subsidyAmount 
-                                                            : resultData.soa.totalAssessment;
+                                                        // --- UPDATED LOGIC: Handle Subsidy Breakdown ---
+                                                        const totalSubsidy = resultData.soa.subsidyBreakdown 
+                                                            ? Object.values(resultData.soa.subsidyBreakdown).reduce((a, b) => a + Number(b), 0)
+                                                            : (resultData.soa.subsidyAmount || 0);
+
+                                                        const isGrantee = totalSubsidy > 0;
+                                                        
+                                                        // Net Assessment Calculation
+                                                        const netAssessment = resultData.soa.totalAssessment - totalSubsidy;
                                                         const monthlyAmortization = netAssessment / 10;
 
                                                         return (
@@ -254,9 +271,9 @@ const TrackingModal = ({ isOpen, onClose }) => {
                                                                         <span className="text-lg md:text-xl font-bold text-white">{formatCurrency(resultData.soa.totalAssessment)}</span>
                                                                     </div>
                                                                     <div className="flex flex-col items-end">
-                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Less: Subsidy</span>
+                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Less: Total Subsidy</span>
                                                                         <span className={`text-lg md:text-xl font-bold ${isGrantee ? 'text-emerald-400' : 'text-slate-600'}`}>
-                                                                            {isGrantee ? `(${formatCurrency(resultData.soa.subsidyAmount)})` : '—'}
+                                                                            {isGrantee ? `(${formatCurrency(totalSubsidy)})` : '—'}
                                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -292,7 +309,7 @@ const TrackingModal = ({ isOpen, onClose }) => {
                                                 </div>
                                             </div>
 
-                                            {/* --- DETAILED FEE BREAKDOWN (MOVED BELOW SUMMARY) --- */}
+                                            {/* --- DETAILED FEE BREAKDOWN --- */}
                                             <div className="space-y-3 animate-fade-in-up delay-75">
                                                 <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Detailed Breakdown</h5>
                                                 
@@ -308,7 +325,7 @@ const TrackingModal = ({ isOpen, onClose }) => {
                                                     <span className="text-base font-black text-slate-800">{formatCurrency(resultData.soa.feeBreakdown?.tuition)}</span>
                                                 </div>
 
-                                                {/* Other Fees Grid */}
+                                                {/* Fees Grid */}
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                     {/* Standard Fees */}
                                                     <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
@@ -332,6 +349,28 @@ const TrackingModal = ({ isOpen, onClose }) => {
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {/* --- NEW: GRANTS & SUBSIDIES SECTION --- */}
+                                                {((resultData.soa.subsidyBreakdown && Object.keys(resultData.soa.subsidyBreakdown).length > 0) || resultData.soa.subsidyAmount > 0) && (
+                                                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 shadow-sm mt-2">
+                                                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-emerald-200/50">
+                                                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                                            <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Applied Grants & Subsidies</p>
+                                                        </div>
+                                                        <div className="space-y-0.5">
+                                                            {resultData.soa.subsidyBreakdown ? (
+                                                                renderFeeList(resultData.soa.subsidyBreakdown, true)
+                                                            ) : (
+                                                                <div className="flex justify-between items-center py-2">
+                                                                    <span className="text-[10px] font-medium uppercase tracking-wide truncate pr-2 text-emerald-600">General Subsidy</span>
+                                                                    <span className="text-xs font-bold whitespace-nowrap text-emerald-600">
+                                                                        -{formatCurrency(resultData.soa.subsidyAmount)}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </>
                                     ) : (
@@ -364,13 +403,11 @@ const TrackingModal = ({ isOpen, onClose }) => {
                                                     <div className="bg-emerald-50 text-emerald-800 rounded-xl p-4 border border-emerald-100 mb-4 flex justify-between items-center">
                                                         <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">Total Paid</span>
                                                         <span className="text-xl font-black">
-                                                            {/* FIXED: Filter out voided transactions from total */}
                                                             {formatCurrency(resultData.soa.payments.reduce((acc, curr) => acc + (curr.isVoid ? 0 : curr.amount), 0))}
                                                         </span>
                                                     </div>
 
                                                     <div className="space-y-2">
-                                                        {/* FIXED: Filter out voided transactions from list */}
                                                         {[...resultData.soa.payments]
                                                             .filter(p => !p.isVoid)
                                                             .reverse()
@@ -378,7 +415,8 @@ const TrackingModal = ({ isOpen, onClose }) => {
                                                             <div key={i} className="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between hover:border-indigo-200 hover:shadow-sm transition-all group">
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors">
-                                                                        <Receipt size={16} />
+                                                                        {/* --- NEW: Dynamic Icon based on payment mode --- */}
+                                                                        {getPaymentIcon(p.mode)}
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-[11px] font-black text-slate-700 uppercase mb-0.5">{p.mode}</p>
